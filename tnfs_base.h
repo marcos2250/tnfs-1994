@@ -8,15 +8,32 @@
 #include "tnfs_math.h"
 
 typedef struct tnfs_polygon {
+	int polyId;
+    int textureId;
     float points[9];
     float texUv[6];
-    int textureId;
 } tnfs_polygon;
 
 typedef struct tnfs_object3d {
     int numPolys;
 	tnfs_polygon mesh[512];
 } tnfs_object3d;
+
+typedef struct tnfs_carmodel3d {
+	tnfs_object3d model;
+	int wheelTexId[4];
+	int brakeLightTexId;
+	int bkll;
+	int bklr;
+	int rt_rear;
+	int lt_rear;
+	int rt_frnt;
+	int lt_frnt;
+	int brakeTexId;
+	int copSirenLights[2];
+	int lrr0;
+	int lrl0;
+} tnfs_carmodel3d;
 
 typedef struct tnfs_scenery_object {
 	int track_slice;
@@ -743,7 +760,7 @@ extern int g_cam_change_delay;
 extern const int g_gravity_const;
 extern int g_race_positions[8];
 
-extern struct tnfs_object3d g_carmodels[32];
+extern struct tnfs_carmodel3d g_carmodels[32];
 extern int g_carmodels_count;
 
 extern float g_terrain[99000];

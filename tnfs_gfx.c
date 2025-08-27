@@ -274,7 +274,7 @@ int gfx_store_shpm_group(byte * shpm, int * texIdsGL) {
 	int numPluts = 0;
 	int i;
 
-	if (shpm[0] != 'S' || shpm[1] != 'H' || shpm[2] != 'P' || shpm[3] != 'M') {
+	if (shpm == 0 || shpm[0] != 'S' || shpm[1] != 'H' || shpm[2] != 'P' || shpm[3] != 'M') {
 		printf("gfx_store_shpm_group: Not a SHPM chunk!\n");
 		return 0;
 	}
@@ -315,7 +315,7 @@ int gfx_store_shpm_group(byte * shpm, int * texIdsGL) {
 int gfx_store_ccb(ccb_chunk *ccb, byte alpha) {
 	image_data * data = 0;
 	int id = 0;
-	if (ccb->id[0] != 'C' || ccb->id[1] != 'C' || ccb->id[2] != 'B' || ccb->id[3] != ' ') {
+	if (ccb == 0 || ccb->id[0] != 'C' || ccb->id[1] != 'C' || ccb->id[2] != 'B' || ccb->id[3] != ' ') {
 		printf("gfx_store_ccb: Not a CCB file!\n");
 		return 0;
 	}
@@ -395,9 +395,73 @@ void gfx_drawShadows() {
 	glDisable(GL_BLEND);
 }
 
+int wheelAnim = 0;
+
+int gfx_getWheelTexture(tnfs_car_data * car, tnfs_carmodel3d * carModel, int isFront) {
+	if (wheelAnim < -0x100000) wheelAnim = 0x100000;
+	wheelAnim -= car->speed;
+	if (isFront) {
+		if (car->speed < 0x100000) {
+			if (car->speed < 0x1000) {
+				return carModel->wheelTexId[0];
+			}
+			return wheelAnim < 0 ? carModel->wheelTexId[2] : carModel->wheelTexId[1];
+		}
+	} else {
+		if (!is_drifting && car->speed < 0x100000) {
+			if (car->speed < 0x1000 || car->handbrake) {
+				return carModel->wheelTexId[0];
+			}
+			return wheelAnim < 0 ? carModel->wheelTexId[2] : carModel->wheelTexId[1];
+		}
+	}
+	return carModel->wheelTexId[3];
+}
+
+void gfx_drawCarWheel(tnfs_car_data * car, tnfs_carmodel3d * carModel, int isFront) {
+	float steer, width, pX, pZ;
+	int viewAngle = math_angle_wrap(car->angle.y - camera.orientation.y);
+
+	pX = ((float) car->car_specs_ptr->body_width) / 0x10000 / 2;
+	pZ = ((float) car->car_specs_ptr->wheelbase) / 0x10000 / 2;
+
+	if (isFront) {
+		steer = ((float) (car->steer_angle >> 8)) / 80000;
+	} else {
+		steer = 0;
+	}
+	width = 0.35f;
+
+	if (viewAngle > 0x800000) {
+		pX *= -1;
+		width *= -1;
+		steer *= -1;
+	}
+	if (!isFront) {
+		pZ *= -1;
+	}
+
+	glDisable(GL_DEPTH_TEST);
+	glEnable(GL_CULL_FACE);
+	glBindTexture(GL_TEXTURE_2D, gfx_getWheelTexture(car, carModel, isFront));
+	glBegin(GL_TRIANGLE_STRIP);
+	glTexCoord2d(0, 0);
+	glVertex3d(pX + steer, 0.7f, pZ + width);
+	glTexCoord2d(0, 1);
+	glVertex3d(pX - steer, 0.7f, pZ - width);
+	glTexCoord2d(1, 0);
+	glVertex3d(pX + steer, 0, pZ + width);
+	glTexCoord2d(1, 1);
+	glVertex3d(pX - steer, 0, pZ - width);
+	glEnd();
+	glDisable(GL_CULL_FACE);
+	glEnable(GL_DEPTH_TEST);
+}
+
 void gfx_drawVehicle(tnfs_car_data * car) {
-	tnfs_object3d * carModel;
+	tnfs_carmodel3d * carModel;
 	tnfs_polygon * poly;
+	int textureId;
 
 	// TNFS uses LHS, convert to OpenGL's RHS
 	glMatrixMode(GL_MODELVIEW);
@@ -434,9 +498,32 @@ void gfx_drawVehicle(tnfs_car_data * car) {
 	glEnable(GL_DEPTH_TEST);
 	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 	glActiveTexture(GL_TEXTURE0);
-	for (int i = 0; i < carModel->numPolys; i++) {
-		poly = &carModel->mesh[i];
-		glBindTexture(GL_TEXTURE_2D, poly->textureId);
+	for (int i = 0; i < carModel->model.numPolys; i++) {
+		poly = &carModel->model.mesh[i];
+		textureId = poly->textureId;
+		if (car->car_id == 0) {
+			// brake lights on
+			if (carModel->bkll == poly->polyId || carModel->bklr == poly->polyId) {
+				if (g_control_brake) textureId = carModel->brakeLightTexId;
+			}
+			// render wheels later
+			if (carModel->rt_frnt == poly->polyId || carModel->lt_frnt == poly->polyId) {
+				continue;
+			}
+			if (carModel->rt_rear == poly->polyId || carModel->lt_rear == poly->polyId) {
+				continue;
+			}
+		}
+		// cop lights
+		if (car->car_model_id == 8 && g_police_on_chase) {
+			if (carModel->lrl0 == poly->polyId && (iSimTimeClock & 0x10) == 0) {
+				textureId = carModel->copSirenLights[0];
+			} else if (carModel->lrr0 == poly->polyId  && (iSimTimeClock & 0x10) != 0) {
+				textureId = carModel->copSirenLights[1];
+			}
+		}
+
+		glBindTexture(GL_TEXTURE_2D, textureId);
 		glBegin(GL_TRIANGLES);
 		glTexCoord2d(poly->texUv[0], poly->texUv[1]);
 		glVertex3d(poly->points[0], poly->points[1], poly->points[2]);
@@ -447,6 +534,12 @@ void gfx_drawVehicle(tnfs_car_data * car) {
 		glEnd();
 	}
 	glBindTexture(GL_TEXTURE_2D, 0);
+
+	// draw wheels
+	if (car->car_id == 0) {
+		gfx_drawCarWheel(car, carModel, 0);
+		gfx_drawCarWheel(car, carModel, 1);
+	}
 }
 
 void gfx_drawHorizon() {

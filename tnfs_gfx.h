@@ -40,6 +40,7 @@ void gfx_write_alpha_channel(byte *data, int size, byte alpha);
 // sim mode
 int gfx_store_shpm_group(byte * shpm, int * texIdsGL);
 int gfx_store_ccb(ccb_chunk *ccb, byte alpha);
+int gfx_store_texture(image_data * image);
 
 void gfx_render_scene();
 

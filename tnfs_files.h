@@ -26,7 +26,7 @@ int read_tri_file(char * file);
 int read_carspecs_file(char * file);
 int read_tddyn_file(char * file, tnfs_car_data *car);
 int read_skill_file(int skill);
-int read_carmodel_file(char * carname, tnfs_object3d * carmodel);
+int read_carmodel_file(char * carname, tnfs_carmodel3d * carmodel);
 int read_track_pkt_file(char * trackname);
 int read_hud_dash_file();
 

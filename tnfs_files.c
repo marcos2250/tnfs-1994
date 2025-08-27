@@ -131,6 +131,17 @@ int locate_wwww(byte *data, byte *pointer, int depth, char *path_result) {
 	return 0;
 }
 
+int seekToken(byte * data, char * token) {
+	int c = 0x3000;
+	while(c--) {
+		if (data[0] == token[0] && data[1] == token[1] && data[2] == token[2] && data[3] == token[3]) {
+			return *(data + 11);
+		}
+		data++;
+	}
+	return 0;
+}
+
 byte * openFile(char * filename, int * fileSize) {
 	FILE * fileptr;
 	char fullFilename[128];
@@ -694,6 +705,8 @@ void parse_ori3_data(tnfs_object3d * model, byte * ori3, byte * shpm, byte inver
 	obj = polyBlock;
 	k = 0;
 	for (i = 0; i < polyCount; i++) {
+		model->mesh[k].polyId = i;
+
 		value = readFixed32(obj, 8);
 		model->mesh[k].points[0] = vertices[value * 3];
 		model->mesh[k].points[1] = vertices[value * 3 + 1];
@@ -717,6 +730,8 @@ void parse_ori3_data(tnfs_object3d * model, byte * ori3, byte * shpm, byte inver
 
 		// convert quadrangle to 2 triangles
 		if (obj[0] == 0 || obj[0] == 4) {
+			model->mesh[k].polyId = i;
+
 			value = readFixed32(obj, 8);
 			model->mesh[k].points[0] = vertices[value * 3];
 			model->mesh[k].points[1] = vertices[value * 3 + 1];
@@ -746,15 +761,17 @@ void parse_ori3_data(tnfs_object3d * model, byte * ori3, byte * shpm, byte inver
 /*
  * Read .WrapFam files
  */
-int read_carmodel_file(char * carname, tnfs_object3d * carmodel) {
+int read_carmodel_file(char * carname, tnfs_carmodel3d * carmodel) {
 	FILE * fileptr;
 	char filename[80];
 	int size = 0;
+	int wpath[3];
 
 	unsigned char * filedata;
 	unsigned char * wwww;
 	unsigned char * ori3;
 	unsigned char * shpm;
+	shpm_image * tex1;
 
 	printf("Loading car WrapFam file - %s\n", carname);
 	sprintf(filename, "assets/DriveData/CarData/%s.WrapFam", carname);
@@ -771,10 +788,54 @@ int read_carmodel_file(char * carname, tnfs_object3d * carmodel) {
 	fclose(fileptr);
 
 	//'wwww'
-	wwww = filedata + readFixed32(filedata, 0x10);
-	ori3 = wwww + readFixed32(wwww, 0x8);
-	shpm = wwww + readFixed32(wwww, 0xC);
-	parse_ori3_data(carmodel, ori3, shpm, 0);
+	wpath[0] = 2;
+	wpath[1] = 0;
+	ori3 = read_wwww(filedata, wpath, 2);
+	wpath[1] = 1;
+	shpm = read_wwww(filedata, wpath, 2);
+	parse_ori3_data(&carmodel->model, ori3, shpm, 0, scale);
+
+	// brake light texture
+	tex1 = gfx_locateshape(shpm, "bkl1");
+	if (tex1) {
+		carmodel->brakeLightTexId = gfx_store_texture(shpm_image_convert(tex1, 0));
+		carmodel->bkll = seekToken(ori3, "bkll");
+		carmodel->bklr = seekToken(ori3, "bklr");
+		carmodel->brakeTexId = carmodel->brakeLightTexId - 24;
+	}
+
+	// wheel texture
+	tex1 = gfx_locateshape(shpm, "whl0");
+	if (tex1) {
+		carmodel->wheelTexId[0] = gfx_store_texture(shpm_image_convert(tex1, 0));
+		carmodel->rt_rear = seekToken(ori3, "rt_r");
+		carmodel->lt_rear = seekToken(ori3, "lt_r");
+		carmodel->rt_frnt = seekToken(ori3, "rt_f");
+		carmodel->lt_frnt = seekToken(ori3, "lt_f");
+	}
+
+	tex1 = gfx_locateshape(shpm, "whl1");
+	if (tex1) carmodel->wheelTexId[1] = gfx_store_texture(shpm_image_convert(tex1, 0));
+	tex1 = gfx_locateshape(shpm, "whl2");
+	if (tex1) carmodel->wheelTexId[2] = gfx_store_texture(shpm_image_convert(tex1, 0));
+
+	// get fast spinning wheel texture
+	for (int i = 0; i < carmodel->model.numPolys; i++) {
+		if (carmodel->rt_rear == carmodel->model.mesh[i].polyId) {
+			carmodel->wheelTexId[3] = carmodel->model.mesh[i].textureId;
+			break;
+		}
+	}
+
+	//cop siren lights
+	tex1 = gfx_locateshape(shpm, "lrl1");
+	if (tex1) {
+		carmodel->copSirenLights[0] = gfx_store_texture(shpm_image_convert(tex1, 0));
+		tex1 = gfx_locateshape(shpm, "lrr1");
+		carmodel->copSirenLights[1] = gfx_store_texture(shpm_image_convert(tex1, 0));
+		carmodel->lrl0 = seekToken(ori3, "lrl0");
+		carmodel->lrr0 = seekToken(ori3, "lrr0");
+	}
 
 	free(filedata);
 	printf("Loaded car model file %s.\n", filename);
@@ -863,7 +924,7 @@ int read_track_pkt_file(char * trackname) {
 		g_horizon_texPkt[i] = gfx_store_ccb((ccb_chunk *) obj, 0xFF);
 	}
 
-	// Group 3: Horizon textures (upper part)
+	// Group 4: Horizon textures (upper part)
 	for (i = 0; i < 6; i++) {
 		wpath[0] = 4;
 		wpath[1] = i;

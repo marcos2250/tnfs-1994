@@ -83,7 +83,7 @@ char * g_ai_tddyn[] = {
 
 
 // car models
-struct tnfs_object3d g_carmodels[32];
+struct tnfs_carmodel3d g_carmodels[32];
 int g_carmodels_count = 0;
 tnfs_vec3 g_shadow_points[4];
 tnfs_vec9 g_shadow_matrix;
