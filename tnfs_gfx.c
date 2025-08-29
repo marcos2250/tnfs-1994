@@ -331,6 +331,53 @@ int gfx_store_ccb(ccb_chunk *ccb, byte alpha) {
 	return id;
 }
 
+
+void gfx_drawSmoke() {
+	float w;
+	tnfs_smoke_puff * smoke;
+	glEnable(GL_BLEND);
+	glBlendEquation(GL_FUNC_ADD);
+	glBlendFunc(GL_ONE, GL_ONE);
+	for (int i = 0; i < 30; i++) {
+		smoke = &g_smoke[i];
+		if (smoke->time <= 0) continue;
+		glMatrixMode(GL_MODELVIEW);
+		glLoadIdentity();
+		if (cam_orientation.x != 0) {
+			glRotatef(cam_orientation.x, 1, 0, 0);
+		}
+		if (cam_orientation.z != 0) {
+			glRotatef(cam_orientation.z, 0, 0, 1);
+		}
+		glRotatef(cam_orientation.y, 0, 1, 0);
+		glTranslatef(((float) (smoke->position.x - camera.position.x)) / 0x10000,
+					 ((float) (smoke->position.y - camera.position.y)) / 0x10000,
+					 ((float)(-smoke->position.z + camera.position.z)) / 0x10000);
+
+		w = (smoke->time / 256);
+		glColor4f(1.0f, 1.0f, 1.0f, 0.1f);
+		glDisable(GL_DEPTH_TEST);
+		glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+		glActiveTexture(GL_TEXTURE0);
+		w = 3 - (w * 2);
+		glBindTexture(GL_TEXTURE_2D, g_smoke_texPkt[smoke->texId]);
+		glBegin(GL_TRIANGLE_STRIP);
+		glTexCoord2d(0, 0);
+		glVertex3d(-w, w, 0);
+		glTexCoord2d(0, 1);
+		glVertex3d(-w, 0, 0);
+		glTexCoord2d(1, 0);
+		glVertex3d(w, w, 0);
+		glTexCoord2d(1, 1);
+		glVertex3d(w, 0, 0);
+		glEnd();
+	}
+	glDisable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	glEnable(GL_DEPTH_TEST);
+	glBindTexture(GL_TEXTURE_2D, 0);
+}
+
 void gfx_drawShadows() {
 	tnfs_car_data * car;
 	float h, w, l;
@@ -515,10 +562,10 @@ void gfx_drawVehicle(tnfs_car_data * car) {
 			}
 		}
 		// cop lights
-		if (car->car_model_id == 8 && g_police_on_chase) {
-			if (carModel->lrl0 == poly->polyId && (iSimTimeClock & 0x10) == 0) {
+		if ((car->car_model_id == 8) && ((car->ai_state & 0x408) == 0x408)) {
+			if (carModel->lrl0 == poly->polyId && (iSimTimeClock & 8) == 0) {
 				textureId = carModel->copSirenLights[0];
-			} else if (carModel->lrr0 == poly->polyId  && (iSimTimeClock & 0x10) != 0) {
+			} else if (carModel->lrr0 == poly->polyId  && (iSimTimeClock & 8) != 0) {
 				textureId = carModel->copSirenLights[1];
 			}
 		}
@@ -942,6 +989,8 @@ void gfx_render_scene() {
 		}
 		gfx_drawVehicle(g_car_ptr_array[i]);
 	}
+
+	gfx_drawSmoke();
 
 	glDisable(GL_DEPTH_TEST);
 	gfx_drawTach();

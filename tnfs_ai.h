@@ -7,6 +7,7 @@
 
 
 void tnfs_ai_init(int oppcarid);
+void tnfs_ai_load_car(tnfs_car_data *car, int newCarModelId);
 void tnfs_ai_driving_main(tnfs_car_data * car);
 void tnfs_ai_collision_handler();
 void tnfs_ai_respawn_main(tnfs_car_data *car);

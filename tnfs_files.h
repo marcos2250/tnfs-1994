@@ -29,5 +29,6 @@ int read_skill_file(int skill);
 int read_carmodel_file(char * carname, tnfs_carmodel3d * carmodel);
 int read_track_pkt_file(char * trackname);
 int read_hud_dash_file();
+int read_sim_common_art_file();
 
 #endif /* TNFS_FILES_H_ */

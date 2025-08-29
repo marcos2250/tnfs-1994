@@ -685,6 +685,12 @@ typedef struct tnfs_camera_specs {
 	int min_distance; //0x34
 } tnfs_camera_specs;
 
+typedef struct tnfs_smoke_puff {
+	int texId;
+	tnfs_vec3 position;
+	float time;
+} tnfs_smoke_puff;
+
 // global variables
 extern struct tnfs_config g_config;
 extern struct tnfs_game_stats g_game_stats[10];
@@ -776,8 +782,11 @@ extern int g_scenery_models_count;
 extern int g_scenery_objects;
 
 extern int g_hud_texPkt[15];
+extern int g_smoke_texPkt[5];
 extern tnfs_vec3 g_shadow_points[4];
 extern tnfs_vec9 g_shadow_matrix;
+
+extern struct tnfs_smoke_puff g_smoke[30];
 
 // common functions
 void tnfs_init_sim();

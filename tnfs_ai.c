@@ -26,8 +26,10 @@ int g_random_direction[2] = { 0, 0 };
 
 int g_ai_opp_speed_factors[8] = { 0xf5c2, 0x10000, 0xfae1, 0xfae1, 0x10000, 0xfae1, 0xf333, 0xf333 };
 
+void tnfs_ai_load_car(tnfs_car_data *car, int newCarModelId);
+
 void tnfs_ai_init(int oppcarid) {
-	int i, j;
+	int i;
     tnfs_car_data *car;
 
 	for (i = g_number_of_players; i < g_total_cars_in_scene; i++) {
@@ -48,32 +50,11 @@ void tnfs_ai_init(int oppcarid) {
 		g_car_array[i].car_id = i;
 		g_car_array[i].car_id2 = i;
 
-		// load specs file
-		read_tddyn_file(g_ai_tddyn[car->car_model_id], &g_car_array[i]);
-
-		// derived values
-		car->field_16c = math_div(0x10000, car->field_168);
-		car->collision_data.angular_acc_factor = math_inverse_value(car->collision_data.moment_of_inertia);
-		car->collision_data.linear_acc_factor = math_inverse_value(car->collision_data.mass);
-		car->collision_height_offset = car->collision_data.size.y;
-		car->collision_data.edge_length = math_vec3_length(&car->collision_data.size);
-		car->car_width = 0x1cccc; //car->collision_data.size.x;
-		car->car_length = 0x4828f; //car->collision_data.size.z;
-
-		// gear ratios
-		for (j = 0; j < 6; j++) {
-			if (car->top_speed_per_gear[j] != 0) {
-				car->ai_gear_ratios[0] = 0x100000000 / car->top_speed_per_gear[j];
-			}
-		}
-
 		// opponent position
 		if (i == 1) {
 			g_car_array[i].track_slice = 0x10;
-			tnfs_reset_car(&g_car_array[i]);
 		} else {
 			g_car_array[i].track_slice = i;
-			tnfs_reset_car(&g_car_array[i]);
 		}
 
 		// ai states
@@ -93,7 +74,63 @@ void tnfs_ai_init(int oppcarid) {
 		}
 
 		g_car_array[i].track_slice_lap = g_car_array[i].track_slice;
+
+		// load car basic specs
+		tnfs_ai_load_car(car, car->car_model_id);
 	}
+}
+
+void tnfs_ai_load_car(tnfs_car_data *car, int newCarModelId) {
+    tnfs_object3d * car3dmodel;
+    float width, height, length;
+    int j, n;
+
+    car->car_model_id = newCarModelId;
+	car3dmodel = &g_carmodels[newCarModelId].model;
+
+	// load basic specs file
+	read_tddyn_file(g_ai_tddyn[newCarModelId], car);
+
+	//FIXME correct car size
+	width = 0; height = 0; length = 0;
+	for (j = 0; j < car3dmodel->numPolys; j++) {
+		n = 0;
+		while (n < 9) {
+			if (car3dmodel->mesh[j].points[n] > width) {
+				width = car3dmodel->mesh[j].points[n];
+			}
+			n++;
+			if (car3dmodel->mesh[j].points[n] > height) {
+				height = car3dmodel->mesh[j].points[n];
+			}
+			n++;
+			if (car3dmodel->mesh[j].points[n] > length) {
+				length = car3dmodel->mesh[j].points[n];
+			}
+			n++;
+		}
+	}
+	car->collision_data.size.x = width * 0x10000;
+	car->collision_data.size.y = (height * 0x10000) / 2;
+	car->collision_data.size.z = length * 0x10000;
+	car->car_width = car->collision_data.size.x * 2;
+	car->car_length = car->collision_data.size.z * 2;
+
+	// derived values
+	car->field_16c = math_div(0x10000, car->field_168);
+	car->collision_data.angular_acc_factor = math_inverse_value(car->collision_data.moment_of_inertia);
+	car->collision_data.linear_acc_factor = math_inverse_value(car->collision_data.mass);
+	car->collision_height_offset = car->collision_data.size.y;
+	car->collision_data.edge_length = math_vec3_length(&car->collision_data.size);
+
+	// gear ratios
+	for (j = 0; j < 6; j++) {
+		if (car->top_speed_per_gear[j] != 0) {
+			car->ai_gear_ratios[0] = 0x100000000 / car->top_speed_per_gear[j];
+		}
+	}
+
+	tnfs_reset_car(car);
 }
 
 int tnfs_ai_traffic_speed(tnfs_car_data *car, int speed) {
@@ -201,8 +238,8 @@ void tnfs_ai_police_reset_state(int flag) {
 	}
 
 	//FIXME disable cop chase???
-	g_cop_car_ptr->ai_state &= 0xff86dbff; //disable 0x2400
-	g_police_on_chase = 0;
+	//g_cop_car_ptr->ai_state &= 0xff86dbff; //disable 0x2400
+	//g_police_on_chase = 0;
 }
 
 int carmodel = 9;
@@ -241,6 +278,7 @@ void tnfs_ai_respawn_do(tnfs_car_data *car, int node, int side, int centerline, 
 	// change car models
 	if ((car->ai_state & 8) == 0) {
 		car->car_model_id = carmodel;
+		tnfs_ai_load_car(car, carmodel);
 		carmodel++;
 		if (carmodel == 27) carmodel = 9;
 	}

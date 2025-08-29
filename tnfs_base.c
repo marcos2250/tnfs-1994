@@ -105,6 +105,10 @@ int g_scenery_objects = 0;
 // hud
 int g_hud_texPkt[15];
 
+// smoke
+int g_smoke_texPkt[5];
+struct tnfs_smoke_puff g_smoke[30];
+
 int DAT_800eb6a4 = 0; //800eb6a4
 int DAT_8010d310 = 0; //8010d310
 
@@ -523,7 +527,6 @@ void tnfs_reset_car(tnfs_car_data *car) {
 		if (car->car_id == g_racer_cars_in_scene) {
 			// police car
 			car->ai_state = 0x1e8;
-			g_police_on_chase = 0;
 		}
 	}
 }
@@ -857,7 +860,7 @@ void tnfs_cheat_mode() {
 void tnfs_crash_car() {
 	int i;
 	for (i = 1; i < g_total_cars_in_scene; i++) {
-		tnfs_collision_rollover_start(g_car_ptr_array[i], 0, 0, -0xa0000);
+		tnfs_collision_rollover_start(g_car_ptr_array[i], -0xa0000, -0xa0000, -0xa0000);
 	}
 }
 
@@ -1251,6 +1254,9 @@ void tnfs_init_sim() {
 	// create hud
 	read_hud_dash_file();
 
+	// common art
+	read_sim_common_art_file();
+
 	// create AI car(s)
 	if (g_config.skill_level >= 3) { // single race
 		g_number_of_cops = 0;
@@ -1290,6 +1296,30 @@ void tnfs_init_sim() {
 	tnfs_camera_init();
 }
 
+int g_smoke_delay;
+void tnfs_smoke_update() {
+	for (int i = 0; i < 30; i++) {
+		g_smoke[i].texId = i & 3;
+
+		if (g_smoke[i].time < 0) {
+			if (is_drifting && g_smoke_delay <= 0) {
+				g_smoke_delay = 0x20;
+
+				g_smoke[i].position.x = -fixmul(math_sin_3(player_car_ptr->angle.y), player_car_ptr->car_length / 2);
+				g_smoke[i].position.x +=  player_car_ptr->position.x;
+				g_smoke[i].position.z = -fixmul(math_cos_3(player_car_ptr->angle.y), player_car_ptr->car_length / 2);
+				g_smoke[i].position.z += player_car_ptr->position.z;
+
+				g_smoke[i].position.y = player_car_ptr->position.y;
+				g_smoke[i].time = 0xFF;
+			}
+			g_smoke_delay--;
+		} else {
+			g_smoke[i].time -= 2;
+			g_smoke[i].position.y += 0x100;
+		}
+	}
+}
 
 /*
  * minimal basic main loop
@@ -1358,4 +1388,5 @@ void tnfs_update() {
 
 	tnfs_camera_auto_change(player_car_ptr);
 	tnfs_camera_update(&camera);
+	tnfs_smoke_update();
 }

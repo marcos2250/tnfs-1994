@@ -793,7 +793,7 @@ int read_carmodel_file(char * carname, tnfs_carmodel3d * carmodel) {
 	ori3 = read_wwww(filedata, wpath, 2);
 	wpath[1] = 1;
 	shpm = read_wwww(filedata, wpath, 2);
-	parse_ori3_data(&carmodel->model, ori3, shpm, 0, scale);
+	parse_ori3_data(&carmodel->model, ori3, shpm, 0);
 
 	// brake light texture
 	tex1 = gfx_locateshape(shpm, "bkl1");
@@ -972,6 +972,26 @@ int read_hud_dash_file() {
 	wpath[1] = 11;
 	img = (ccb_chunk*) read_wwww(dashfile, wpath, 2);
 	g_hud_texPkt[11] = gfx_store_ccb(img, 0xFF);
+
+	return 1;
+}
+
+int read_sim_common_art_file() {
+	int i;
+	int wpath[2] = { 0, 0 };
+	ccb_chunk * img;
+
+	byte *artfile = openFileBuffer("DriveData/DriveArt/SimCommonArt.Fam", &i);
+	if (artfile == 0) {
+		return 0;
+	}
+
+	// smoke puffs
+	for (i = 0; i < 4; i++) {
+		wpath[0] = i;
+		img = (ccb_chunk*) read_wwww(artfile, wpath, 1);
+		g_smoke_texPkt[i] = gfx_store_ccb(img, 0x22);
+	}
 
 	return 1;
 }
