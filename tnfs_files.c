@@ -201,6 +201,16 @@ byte * openFileBuffer(char * filename, int * fileSize) {
 	return filedata;
 }
 
+void clearFileBuffer() {
+	for (int i = 0; i < file_counter; i++) {
+		if (g_file_assets[i].content) {
+			free(g_file_assets[i].content);
+		}
+		g_file_assets[i].content = 0;
+		g_file_assets[i].length = 0;
+	}
+}
+
 byte * seekNextCCB(byte *filedata) {
 	byte *obj = filedata;
 	int count = 10000;
@@ -768,7 +778,6 @@ int read_carmodel_file(char * carname, tnfs_carmodel3d * carmodel) {
 	int wpath[3];
 
 	unsigned char * filedata;
-	unsigned char * wwww;
 	unsigned char * ori3;
 	unsigned char * shpm;
 	shpm_image * tex1;

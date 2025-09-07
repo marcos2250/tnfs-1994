@@ -647,8 +647,9 @@ void tnfs_ui_initial(int option) {
 
 	gfx_write_alpha_channel(g_backbuffer, 307200, 0xFF);
 	gfx_readshape_9444(iVar1_408, "lite");
-	gfx_drawshape_94f4_at(0x28, option * 50 + 80);
+	gfx_drawshape_94f4_at(0x28, option * 40 + 70);
 
-	gfx_draw_text_9500("Start NFS", 0x40, 90);
-	gfx_draw_text_9500("Asset file viewer", 0x40, 140);
+	gfx_draw_text_9500("Start NFS", 0x40, 80);
+	gfx_draw_text_9500("Image file viewer", 0x40, 120);
+	gfx_draw_text_9500("Audio file player", 0x40, 160);
 }

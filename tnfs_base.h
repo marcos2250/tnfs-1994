@@ -709,6 +709,7 @@ extern struct tnfs_car_specs car_specs;
 extern struct tnfs_car_data g_car_array[8];
 extern tnfs_car_data *g_car_ptr_array[8];
 extern tnfs_car_data *player_car_ptr;
+extern tnfs_car_data *g_cop_car_ptr;
 extern tnfs_ai_skill_cfg g_ai_skill_cfg;
 extern tnfs_stats_data g_stats_data;
 
@@ -746,6 +747,7 @@ extern int DAT_000FDB94;
 extern int DAT_000FDCEC;
 extern int DAT_000FDCF0;
 extern int DAT_000f9A70;
+extern int DAT_000f9a74;
 extern int g_lcg_random_mod;
 extern int g_lcg_random_nbr;
 extern int g_lcg_random_seed;

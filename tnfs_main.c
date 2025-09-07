@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <SDL.h>
 #include <SDL_opengl.h>
+#include <SDL_audio.h>
 #include <GL/gl.h>
 #include <GL/glu.h>
 #include "tnfs_math.h"
@@ -8,10 +9,12 @@
 #include "tnfs_files.h"
 #include "tnfs_front.h"
 #include "tnfs_gfx.h"
+#include "tnfs_sfx.h"
 
 static SDL_Event event;
 static SDL_Window *window;
 static SDL_GLContext glContext;
+static SDL_AudioDeviceID audioDevice;
 
 void sys_sdl_exit();
 void tnfs_menu_pause();
@@ -84,6 +87,9 @@ void handleKeys() {
 		case SDLK_d:
 			tnfs_crash_car();
 			break;
+		case SDLK_h:
+			sfx_play_sound(5, 1, 0.5f, 1);
+			break;
 		case SDLK_F1:
 			tnfs_abs();
 			break;
@@ -120,6 +126,9 @@ void handleKeys() {
 		case SDLK_SPACE:
 			g_car_array[0].handbrake = 0;
 			break;
+		case SDLK_h:
+			sfx_stop_sound(5);
+			break;
 		default:
 			break;
 		}
@@ -129,16 +138,19 @@ void handleKeys() {
 /* System events */
 
 void sys_sdl_exit() {
+	clearFileBuffer();
+	sfx_clear_buffers();
+
+	SDL_CloseAudioDevice(audioDevice);
+	SDL_QuitSubSystem(SDL_INIT_AUDIO);
 	SDL_GL_DeleteContext(glContext);
 	SDL_DestroyWindow(window);
 	SDL_Quit();
-	printf("bye!\n");
 	exit(0);
 }
 
-
 /* Sim Mode */
-void renderGl() {
+void gfx_update() {
 	glMatrixMode(GL_PROJECTION);
 	glLoadIdentity();
 	gluPerspective(50.0, 1.38, 0.1, 1000);
@@ -193,7 +205,7 @@ void sys_sdl_loop() {
 		renderGlFrontEnd();
 	} else {
 		tnfs_update();
-		renderGl();
+		gfx_update();
 	}
 
 	SDL_Delay(30);
@@ -217,6 +229,9 @@ void tnfs_race_enter() {
 	isFrontEnd = 0;
 	quit = 0;
 
+	sfx_init_sim(g_player_car);
+	SDL_PauseAudioDevice(audioDevice, 0);
+
 	while(!quit) {
 		sys_sdl_loop();
 
@@ -239,7 +254,7 @@ void gfx_static_screen(char * file, char * label) {
 	}
 }
 
-void toggle(int *current, int max, int inc) {
+void toggle_s(int *current, int max, int inc) {
 	if (*current == 0 && inc < 0) {
 		*current = max;
 	} else {
@@ -250,9 +265,15 @@ void toggle(int *current, int max, int inc) {
 	}
 }
 
+void toggle(int *current, int max, int inc) {
+	sfx_play_sound(2, 0, 0.5f, 1);
+	toggle_s(current, max, inc);
+}
+
 void tnfs_menu_pause() {
 	isFrontEnd = 1;
 	int option = 0;
+	SDL_PauseAudioDevice(audioDevice, 1);
 	while(1) {
 		switch (keys_getkey()) {
 		case SDLK_UP:
@@ -262,6 +283,7 @@ void tnfs_menu_pause() {
 			toggle(&option, 3, +1);
 			break;
 		case SDLK_RETURN:
+			SDL_PauseAudioDevice(audioDevice, 0);
 			if (option == 0) {
 				isFrontEnd = 0;
 				return;
@@ -272,6 +294,7 @@ void tnfs_menu_pause() {
 			}
 			break;
 		case SDLK_ESCAPE:
+			SDL_PauseAudioDevice(audioDevice, 0);
 			isFrontEnd = 0;
 			return;
 		default:
@@ -285,6 +308,8 @@ void tnfs_menu_pause() {
 void tnfs_menu_credits() {
 	int time = 0;
 	int crew = 0;
+
+	sfx_play_music(3);
 
 	while(1) {
 		if (time == 0x897) {
@@ -400,8 +425,10 @@ int tnfs_menu_checkpoint() {
 				return 1;
 			if (option == 3)
 				tnfs_menu_checkopts();
-			if (option == 5)
+			if (option == 5) {
+				quit = 1;
 				return 0;
+			}
 			break;
 		case SDLK_ESCAPE:
 			return 1;
@@ -473,13 +500,16 @@ void tnfs_menu_options() {
 
 void tnfs_menu_showcase() {
 	int scroll = 0;
+	sfx_play_speech_car(g_player_car);
 	while(1) {
 		switch (keys_getkey()) {
 		case SDLK_RIGHT:
 			toggle(&g_player_car, 7, +1);
+			sfx_play_speech_car(g_player_car);
 			break;
 		case SDLK_LEFT:
 			toggle(&g_player_car, 7, -1);
+			sfx_play_speech_car(g_player_car);
 			break;
 		case SDLK_UP:
 			scroll -= 0x10;
@@ -488,6 +518,7 @@ void tnfs_menu_showcase() {
 			scroll += 0x10;
 			break;
 		case SDLK_ESCAPE:
+			sfx_stop_sound(3);
 			return;
 		default:
 			break;
@@ -500,13 +531,16 @@ void tnfs_menu_showcase() {
 
 void tnfs_menu_route() {
 	gfx_clear();
+	sfx_play_speech_track(g_track_sel);
 	while(1) {
 		switch (keys_getkey()) {
 		case SDLK_RIGHT:
 			toggle(&g_track_sel, 3, +1);
+			sfx_play_speech_track(g_track_sel);
 			break;
 		case SDLK_LEFT:
 			toggle(&g_track_sel, 3, -1);
+			sfx_play_speech_track(g_track_sel);
 			break;
 		case SDLK_UP:
 			toggle(&g_track_segment, 2, +1);
@@ -515,6 +549,7 @@ void tnfs_menu_route() {
 			toggle(&g_track_segment, 2, -1);
 			break;
 		case SDLK_ESCAPE:
+			sfx_stop_sound(3);
 			return;
 		default:
 			break;
@@ -527,6 +562,9 @@ void tnfs_menu_route() {
 void tnfs_loading_screen() {
 	int timer;
 	int i;
+
+	SDL_PauseAudioDevice(audioDevice, 1);
+
 	for (i = 0; i < 3; i++) {
 		timer = 30;
 		tnfs_ui_loading_screen(i);
@@ -542,34 +580,36 @@ void tnfs_menu_drive_start() {
 	g_track_segment = 0;
 	tnfs_loading_screen();
 	tnfs_race_enter();
-	if (quit) {
-		return;
-	}
-	if (!tnfs_menu_checkpoint()) {
-		return;
+	if (!quit) {
+		tnfs_menu_checkpoint();
 	}
 
-	g_track_segment = 1;
-	tnfs_loading_screen();
-	tnfs_race_enter();
-	if (quit) {
-		return;
+	if (!quit) {
+		g_track_segment = 1;
+		tnfs_loading_screen();
+		tnfs_race_enter();
 	}
-	if (!tnfs_menu_checkpoint()) {
-		return;
+	if (!quit) {
+		tnfs_menu_checkpoint();
 	}
 
-	g_track_segment = 2;
-	tnfs_loading_screen();
-	tnfs_race_enter();
-	if (quit) {
-		return;
+	if (!quit) {
+		g_track_segment = 2;
+		tnfs_loading_screen();
+		tnfs_race_enter();
 	}
-	tnfs_menu_finish();
+	if (!quit) {
+		tnfs_menu_finish();
+	}
+
+	sfx_init_frontend();
+	sfx_play_sound(0, 1, 1, 1);
 }
 
 void tnfs_menu_control() {
 	int option = 0;
+	sfx_init_frontend();
+	sfx_play_sound(0, 1, 1, 1);
 	while(1) {
 		switch (keys_getkey()) {
 		case SDLK_UP:
@@ -585,6 +625,7 @@ void tnfs_menu_control() {
 			toggle(&option, 4, -1);
 			break;
 		case SDLK_RETURN:
+			sfx_play_sound(1, 0, 1, 1);
 			if (option == 0)
 				tnfs_menu_drive_start();
 			if (option == 1)
@@ -751,21 +792,31 @@ void fileView_dumpFile() {
 	}
 }
 
+void fileView_sfx_screen(int id) {
+	char text[80];
+	gfx_clear();
+	sprintf((char*)&text, "Sound bank: %d", id);
+	gfx_draw_text_9500(text, 10, 20);
+	gfx_draw_text_9500("Up/Dn:change Space:play Esc:back", 10, 210);
+}
+
 void fileViewer_main() {
 	int pos = 0;
 	int id = 13;
 	int fileView_count = 20;
 	fileView_scan_file(id);
 
+	gfx_draw_text_9500("PgUp/PgDn:chg.files L/R/Up/Dn:seek Esc:back", 10, 210);
+
 	isFrontEnd = 1;
 	while(1)  {
 		switch (keys_getkey()) {
-		case SDLK_UP:
-			toggle(&id, fileView_count, -1);
+		case SDLK_PAGEUP:
+			toggle_s(&id, fileView_count, -1);
 			fileView_scan_file(id);
 			break;
-		case SDLK_DOWN:
-			toggle(&id, fileView_count, +1);
+		case SDLK_PAGEDOWN:
+			toggle_s(&id, fileView_count, +1);
 			fileView_scan_file(id);
 			break;
 		case SDLK_RIGHT:
@@ -778,12 +829,12 @@ void fileViewer_main() {
 			fileView_drawImage(fileView_data, pos);
 			fileView_printData();
 			break;
-		case SDLK_PAGEUP:
+		case SDLK_UP:
 			fileView_seekImage(&pos, -20);
 			fileView_drawImage(fileView_data, pos);
 			fileView_printData();
 			break;
-		case SDLK_PAGEDOWN:
+		case SDLK_DOWN:
 			fileView_seekImage(&pos, +20);
 			fileView_drawImage(fileView_data, pos);
 			fileView_printData();
@@ -801,21 +852,54 @@ void fileViewer_main() {
 	}
 }
 
+void audioPlayer_main() {
+	int id = 0;
+	int fileView_count = 17;
+	gfx_clear();
+	sfx_init_sim(0);
+	fileView_sfx_screen(id);
+
+	isFrontEnd = 1;
+	while(1)  {
+		switch (keys_getkey()) {
+		case SDLK_UP:
+			toggle_s(&id, fileView_count, -1);
+			fileView_sfx_screen(id);
+			break;
+		case SDLK_DOWN:
+			toggle_s(&id, fileView_count, +1);
+			fileView_sfx_screen(id);
+			break;
+		case SDLK_SPACE:
+			sfx_play_sound(id, 0, 0.25f, 1);
+			break;
+		case SDLK_ESCAPE:
+			return;
+			break;
+		default:
+			break;
+		}
+		sys_sdl_loop_frontend();
+	}
+}
+
 void initial_menu() {
 	int option = 0;
 	while(1) {
 		switch (keys_getkey()) {
 		case SDLK_UP:
-			toggle(&option, 1, +1);
+			toggle_s(&option, 2, -1);
 			break;
 		case SDLK_DOWN:
-			toggle(&option, 1, -1);
+			toggle_s(&option, 2, +1);
 			break;
 		case SDLK_RETURN:
 			if (option == 0)
 				tnfs_game_main();
 			if (option == 1)
 				fileViewer_main();
+			if (option == 2)
+				audioPlayer_main();
 			break;
 		default:
 			break;
@@ -828,7 +912,7 @@ void initial_menu() {
 
 int main(int argc, char **argv) {
 
-	if (SDL_Init(SDL_INIT_VIDEO) < 0) {
+	if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) < 0) {
 		printf("SDL could not be initialized! SDL_Error: %s\n", SDL_GetError());
 		return 0;
 	}
@@ -854,6 +938,19 @@ int main(int argc, char **argv) {
 		printf("GL Context could not be created! SDL_Error: %s\n", SDL_GetError());
 	}
 
+    SDL_AudioSpec desiredSpec, obtainedSpec;
+    desiredSpec.freq = 44100;
+    desiredSpec.format = AUDIO_S16SYS; // Signed 16-bit audio, system endian
+    desiredSpec.channels = 2; // 1 Mono/2 Stereo
+    desiredSpec.samples = 0; // Buffer size (power of 2)
+    desiredSpec.callback = (void*) sfx_sdl_audio_callback;
+    desiredSpec.userdata = NULL;
+
+    audioDevice = SDL_OpenAudioDevice(NULL, 0, &desiredSpec, &obtainedSpec, 0);
+    if (audioDevice == 0) {
+    	printf("Audio device could not be created! SDL_Error: %s\n", SDL_GetError());
+    }
+
 	glViewport(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
 	glClearColor(1.f, 1.f, 1.f, 0.f);
 	glClear(GL_COLOR_BUFFER_BIT);
@@ -865,7 +962,11 @@ int main(int argc, char **argv) {
 
 	tnfs_init_config();
 	gfx_init_stuff();
+
+	sfx_init_frontend();
+	SDL_PauseAudioDevice(audioDevice, 0);
 	initial_menu();
+
 	sys_sdl_exit();
 	return 0;
 }

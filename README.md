@@ -7,10 +7,10 @@ The goal is to recreate the original game look and feel, and make it natively pl
 > ⚠️ To play the game, you must own a legal copy of the original **3DO CD-ROM**. The assets from the disc are required and are not distributed with this project.
 
 ## Features
-- Faithful recreation of the original gameplay.
-- SDL2/OpenGL 3D in pure C.
+- Faithful recreation of the original 3DO version gameplay.
+- SDL2/OpenGL 3D and Audio in pure C without any additional libraries.
 
-Missing features: Sound/Music/FMVs playback, Replays and Highlights, Best times records save, and some graphics effects.
+Missing features: FMV playback, Replays and Highlights, Best times records save.
 
 ## How to play
 1. clone/download repo

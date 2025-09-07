@@ -5,6 +5,8 @@
 #ifndef TNFS_FILES_H_
 #define TNFS_FILES_H_
 
+#include "tnfs_base.h"
+
 #define byte unsigned char
 
 typedef struct file_assets {
@@ -16,6 +18,8 @@ typedef struct file_assets {
 void fileWrite(byte * data, int size);
 byte * openFile(char * filename, int * fileSize);
 byte * openFileBuffer(char * filename, int * fileSize);
+void clearFileBuffer();
+
 int readbits(unsigned char * data, int * idx_, byte size);
 int readFixed32(unsigned char *buffer, int pos);
 int readSigned16(unsigned char *buffer, int pos);

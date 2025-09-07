@@ -11,6 +11,7 @@
 #include "tnfs_ai.h"
 #include "tnfs_camera.h"
 #include "tnfs_front.h"
+#include "tnfs_sfx.h"
 
 const int g_gravity_const = 0x9CF5C;
 
@@ -32,6 +33,7 @@ tnfs_car_specs car_specs;
 tnfs_car_data g_car_array[8];
 tnfs_car_data *g_car_ptr_array[8]; // 00153ba0/00153bec 8010c720/800f7e60
 tnfs_car_data *player_car_ptr;
+tnfs_car_data *g_cop_car_ptr = 0;
 tnfs_ai_skill_cfg g_ai_skill_cfg;
 tnfs_stats_data g_stats_data;
 
@@ -117,6 +119,7 @@ int DAT_000f99e4 = 0x10000;
 int DAT_000f99e8 = 0x34000;
 int DAT_000f99ec = 10; //800eae14
 int DAT_000f99f0 = 0x8000;
+int DAT_000f9a74 = 0;
 int DAT_000fae60 = 0;
 int DAT_000FDB94 = 0;
 int DAT_000FDCEC = 0;
@@ -864,11 +867,94 @@ void tnfs_crash_car() {
 	}
 }
 
-/* common stub functions */
+void tnfs_sfx_play(int a, int id1, int id2, int volume, int distance, int direction) {
+	float vol;
 
-void tnfs_sfx_play(int a, int b, int c, int d, int e, int f) {
-	printf("sound %i %i\n", b, f);
+	if (distance < 0x80000) {
+		vol = 1;
+	} else if (distance < 0x100000) {
+		vol = 0.5;
+	} else if (distance < 0x800000) {
+		vol = 0.25;
+	} else {
+		return;
+	}
+
+	if (id1 == 2) {
+		//collisions
+		if (id2 == 0) {
+			// car on car
+			sfx_play_sound(9, 0, 0.25f, vol);
+		} else if (id2 == 1) {
+			// rollover crash
+			sfx_play_sound(7, 0, 0.25f, vol);
+		} else if (id2 == 9) {
+			//fence collision
+			sfx_play_sound(14, 0, 0.25f, vol);
+		}
+
+	} else if (id1 == 4) {
+		// car jump hit
+		sfx_play_sound(13, 0, 0.25f, 1);
+
+	} else if (id1 == 13) {
+		// gear shift
+		sfx_play_sound(4, 0, 0.5f, 1);
+	}
 }
+
+void sfx_update() {
+	float f = 0;
+	tnfs_car_data * car;
+
+	car = camera.car_ptr_1;
+	if (!car) {
+		car = player_car_ptr;
+	}
+
+	// engine sound
+	if (car->is_crashed) {
+		sfx_play_sound(2, 1, 0, 0);
+	} else {
+		f = ((float)car->rpm_engine) / 14000;
+		sfx_play_sound(2, 1, f, f);
+	}
+
+	// cop siren
+	if (g_cop_car_ptr && ((g_cop_car_ptr->ai_state & 0x408) == 0x408)) {
+		f = abs(camera.track_slice - g_cop_car_ptr->track_slice);
+		f = (100 / f) / 100;
+	} else {
+		f = 0;
+	}
+	sfx_play_sound(10, 1, 0.25f, f);
+
+	// air drag/rolling tires sound
+	if (car->time_off_ground > 0 || car->is_crashed) {
+		f = 0;
+	} else {
+		f = ((float)car->speed_local_lon) / 0x600000;
+	}
+	sfx_play_sound(17, 1, f, f);
+
+	// tire screeching
+	if (car->time_off_ground > 0) {
+		f = 0;
+	} else {
+		if (is_drifting) {
+			f = 0.5;
+		} else {
+			if (car->tire_skid_front || car->tire_skid_rear) {
+				f = 0.25f;
+			} else {
+				f = 0;
+			}
+		}
+	}
+	sfx_play_sound(18, 1, f, f);
+}
+
+/* common stub functions */
 
 void tnfs_replay_highlight_record(char a) {
 	if (iSimTimeClock % 30 == 0)
@@ -906,11 +992,11 @@ void tnfs_car_local_position_vector(tnfs_car_data *car, int *angle, int *length)
 	int z;
 	int heading;
 
-	x = car->position.x - track_data[car->track_slice & g_slice_mask].pos.x;
-	y = car->position.y - track_data[car->track_slice & g_slice_mask].pos.y;
-	z = car->position.z - track_data[car->track_slice & g_slice_mask].pos.z;
+	x = car->position.x - camera.position.x;
+	y = car->position.y - camera.position.y;
+	z = car->position.z - camera.position.z;
 
-	heading = track_data[car->track_slice & g_slice_mask].heading * 0x400;
+	heading = camera.orientation.y;
 
 	if (heading < 0) {
 		heading = heading + 0x1000000;
@@ -1389,4 +1475,5 @@ void tnfs_update() {
 	tnfs_camera_auto_change(player_car_ptr);
 	tnfs_camera_update(&camera);
 	tnfs_smoke_update();
+	sfx_update();
 }

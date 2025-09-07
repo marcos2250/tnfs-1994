@@ -13,8 +13,6 @@ int g_is_playing = 1;
 
 tnfs_car_specs g_ai_car_specs;
 
-tnfs_car_data *g_cop_car_ptr = 0;
-
 int g_cop_park_position = 0;
 int g_tri_lap_chunks = 0x208;
 int g_tri_num_chunks = 0x8000;

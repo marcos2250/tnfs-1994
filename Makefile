@@ -13,6 +13,7 @@ OBJS= \
 	tnfs_ai.c \
 	tnfs_files.c \
 	tnfs_gfx.c \
+	tnfs_sfx.c \
 	tnfs_front.c \
 	tnfs_main.c
 	
