@@ -263,7 +263,7 @@ void sfx_mix_stream(int16_t *outStream, int outLen, sfx_assets * sound) {
 
 	int *inStreamPos = &sound->playback_pos;
 
-	int16_t value = 0;
+	int value = 0;
 	int tS = *inStreamPos;
 	int ti = 0;
 	float tf = 0;
@@ -303,7 +303,11 @@ void sfx_mix_stream(int16_t *outStream, int outLen, sfx_assets * sound) {
 			value *= sound->volume;
 		}
 
-		out[i] += value;
+		// sound output mix (just add and clamp value)
+		value += out[i];
+		if (value > 0x7FFF) value = 0x7FFF;
+		if (value < -0x7FFF) value = -0x7FFF;
+		out[i] = value;
 	}
 }
 

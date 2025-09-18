@@ -88,7 +88,7 @@ void handleKeys() {
 			tnfs_crash_car();
 			break;
 		case SDLK_h:
-			sfx_play_sound(5, 1, 0.5f, 1);
+			sfx_play_sound(5, 1, 0.25f, 1);
 			break;
 		case SDLK_F1:
 			tnfs_abs();
@@ -235,7 +235,7 @@ void tnfs_race_enter() {
 	while(!quit) {
 		sys_sdl_loop();
 
-		if (player_car_ptr->field_4c9 > 200) {
+		if (player_car_ptr->field_4c9 > 150) {
 			if (player_car_ptr->track_slice < 0x10) {
 				quit = 1; // player give up
 			}
@@ -802,7 +802,7 @@ void fileView_sfx_screen(int id) {
 
 void fileViewer_main() {
 	int pos = 0;
-	int id = 13;
+	int id = 11;
 	int fileView_count = 20;
 	fileView_scan_file(id);
 
@@ -960,8 +960,12 @@ int main(int argc, char **argv) {
 	glEnable(GL_TEXTURE_2D);
 	glColor3f(0.0f, 0.0f, 0.0f);
 
+	if (!gfx_init_stuff()) {
+		sys_sdl_exit();
+		return 0;
+	}
+
 	tnfs_init_config();
-	gfx_init_stuff();
 
 	sfx_init_frontend();
 	SDL_PauseAudioDevice(audioDevice, 0);

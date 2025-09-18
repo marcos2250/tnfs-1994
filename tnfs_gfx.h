@@ -15,7 +15,7 @@ extern const int BUFFER_PIXELS;
 
 extern unsigned char g_backbuffer[307200]; //320x240x4
 
-void gfx_init_stuff();
+int gfx_init_stuff();
 void dumpHexData(byte * data);
 void gfx_set_filedata(byte * ptr);
 shpm_image * gfx_locateshape(byte *data, char *shapeid);

@@ -109,7 +109,8 @@ int g_hud_texPkt[15];
 
 // smoke
 int g_smoke_texPkt[5];
-struct tnfs_smoke_puff g_smoke[30];
+int g_smoke_delay;
+struct tnfs_smoke_puff g_smoke[SMOKE_PUFFS];
 
 int DAT_800eb6a4 = 0; //800eb6a4
 int DAT_8010d310 = 0; //8010d310
@@ -324,6 +325,15 @@ void tnfs_init_track(char *tri_file) {
 	    		sliceptr[0] = sliceptr[1];
 	    	}
 	    	sliceptr += 11;
+		}
+	}
+
+	// invisible polygons at tunnel entrances
+	for (chunk = 0; chunk < 600; chunk++) {
+		i = chunk * 4;
+		if (track_data[i].item_mode == 3 && track_data[i + 4].item_mode == 5) {
+			g_terrain_texId[chunk * 10 + 4] = 0; //rightmost strip
+			g_terrain_texId[chunk * 10 + 9] = 0; //leftmost strip
 		}
 	}
 
@@ -677,11 +687,11 @@ void tnfs_initial_position(tnfs_car_data *car) {
 void tnfs_controls_update() {
 	// steer ramp
 	if (g_control_steer > 0) {
-		g_car_array[0].steer_angle += 0x80000;
+		g_car_array[0].steer_angle += 0x40000;
 		if (g_car_array[0].steer_angle > 0x1B0000)
 			g_car_array[0].steer_angle = 0x1B0000;
 	} else if (g_control_steer < 0) {
-		g_car_array[0].steer_angle -= 0x80000;
+		g_car_array[0].steer_angle -= 0x40000;
 		if (g_car_array[0].steer_angle < -0x1B0000)
 			g_car_array[0].steer_angle = -0x1B0000;
 	} else {
@@ -899,7 +909,7 @@ void tnfs_sfx_play(int a, int id1, int id2, int volume, int distance, int direct
 
 	} else if (id1 == 13) {
 		// gear shift
-		sfx_play_sound(4, 0, 0.5f, 1);
+		sfx_play_sound(4, 0, 0.25f, 1);
 	}
 }
 
@@ -938,7 +948,7 @@ void sfx_update() {
 	sfx_play_sound(17, 1, f, f);
 
 	// tire screeching
-	if (car->time_off_ground > 0) {
+	if (car->time_off_ground > 0 || car->is_crashed) {
 		f = 0;
 	} else {
 		if (is_drifting) {
@@ -1283,6 +1293,29 @@ int tnfs_car_shadow_update(tnfs_car_data *car, int param_2) {
 	return uVar1;
 }
 
+void tnfs_smoke_update() {
+	for (int i = 0; i < SMOKE_PUFFS; i++) {
+		g_smoke[i].texId = i & 3;
+		if (g_smoke[i].time < 0) {
+			if (is_drifting && g_smoke_delay <= 0) {
+				g_smoke_delay = 20;
+				g_smoke[i].position.x = -fixmul(math_sin_3(player_car_ptr->angle.y), player_car_ptr->car_length / 2);
+				g_smoke[i].position.x +=  player_car_ptr->position.x;
+				g_smoke[i].position.z = -fixmul(math_cos_3(player_car_ptr->angle.y), player_car_ptr->car_length / 2);
+				g_smoke[i].position.z += player_car_ptr->position.z;
+
+				g_smoke[i].position.y = player_car_ptr->position.y;
+				g_smoke[i].time = 0xFF;
+			}
+			g_smoke_delay--;
+		} else {
+			g_smoke[i].time -= 10;
+			g_smoke[i].position.y += 0x100;
+		}
+	}
+}
+
+
 /*
  * setup everything
  */
@@ -1382,31 +1415,6 @@ void tnfs_init_sim() {
 	tnfs_camera_init();
 }
 
-int g_smoke_delay;
-void tnfs_smoke_update() {
-	for (int i = 0; i < 30; i++) {
-		g_smoke[i].texId = i & 3;
-
-		if (g_smoke[i].time < 0) {
-			if (is_drifting && g_smoke_delay <= 0) {
-				g_smoke_delay = 0x20;
-
-				g_smoke[i].position.x = -fixmul(math_sin_3(player_car_ptr->angle.y), player_car_ptr->car_length / 2);
-				g_smoke[i].position.x +=  player_car_ptr->position.x;
-				g_smoke[i].position.z = -fixmul(math_cos_3(player_car_ptr->angle.y), player_car_ptr->car_length / 2);
-				g_smoke[i].position.z += player_car_ptr->position.z;
-
-				g_smoke[i].position.y = player_car_ptr->position.y;
-				g_smoke[i].time = 0xFF;
-			}
-			g_smoke_delay--;
-		} else {
-			g_smoke[i].time -= 2;
-			g_smoke[i].position.y += 0x100;
-		}
-	}
-}
-
 /*
  * minimal basic main loop
  */
@@ -1420,6 +1428,11 @@ void tnfs_update() {
 	if (g_race_status == 0 && player_car_ptr->car_road_speed > 0) {
 		g_race_status = 1;
 		tnfs_ai_respawn_00028cc4();
+	}
+	//FIX: disable cop if crashed or finished race
+	if (player_car_ptr->is_crashed || player_car_ptr->field_4c9) {
+		g_police_on_chase = 0;
+		g_cop_car_ptr->ai_state = 0x1e8;
 	}
 
 	player_car_ptr->car_road_speed = tnfs_car_road_speed(player_car_ptr);

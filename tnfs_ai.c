@@ -242,6 +242,8 @@ void tnfs_ai_police_reset_state(int flag) {
 
 int carmodel = 9;
 void tnfs_ai_respawn_do(tnfs_car_data *car, int node, int side, int centerline, int flag) {
+	tnfs_vec9 mat_car_rotate;
+	int node_new = 0;
 
 	//FIXME added quirks
 	printf("Respawn car %d, node %d, direction %d, state=%x, f084=%d, f158=%x f4e9=%x\n", //
@@ -273,16 +275,18 @@ void tnfs_ai_respawn_do(tnfs_car_data *car, int node, int side, int centerline, 
 			return;
 		}
 	}
-	// change car models
+	// switch car models
 	if ((car->ai_state & 8) == 0) {
 		car->car_model_id = carmodel;
 		tnfs_ai_load_car(car, carmodel);
 		carmodel++;
 		if (carmodel == 27) carmodel = 9;
 	}
+	// end of quirks
 
-	car->track_slice = node;
-	car->track_slice_lap = node;
+	if (node < 0) {
+		node = 0;
+	}
 
 	tnfs_ai_get_speed_factor(car);
 	tnfs_ai_get_lane_slack(car);
@@ -297,10 +301,10 @@ void tnfs_ai_respawn_do(tnfs_car_data *car, int node, int side, int centerline, 
 
 	//if ((((car->ai_state & 8) != 0) && (g_is_playing != 1)) && (DAT_001448e0 == 6)) {
 	//	DAT_001448e0 = 4;
-	//	FUN_00041ea7(&g_selected_camera, &g_car_ptr_array[DAT_0016707c], 4);
+	//	tnfs_camera_00000d48(&g_selected_camera, &g_car_ptr_array[DAT_0016707c], 4);
 	//}
-	//FUN_0007da53(car);
 
+	// reset police state
 	car->ai_state = car->ai_state & 0xfffd7bff;
 	if ((((car->ai_state & 0x2000) == 0) //
 			&& (((car->ai_state & 4) == 0 || (player_car_ptr->track_slice <= car->track_slice)))) //
@@ -315,40 +319,31 @@ void tnfs_ai_respawn_do(tnfs_car_data *car, int node, int side, int centerline, 
 	} else {
 		car->ai_state = (car->ai_state & 0xfffd5bff) | 0x400; //disable cop chase
 	}
-	//if (((ptVar4[-0x5e].pos.y + local_2c * 0x24 + 4) & 0xf0) == 0) {
-	//	side = 1;
-	//}
+	if ((track_data[node].num_lanes & 0xf0) == 0) {
+		side = 1;
+	}
 	if ((car->ai_state & 0x408) == 8) {
 		// chasing cop turn around
 		car->field_4e9 &= 0xfb; //disable flag 4, disable collision, enable cop park respawn
 	}
 
 	/*
-	FUN_00018eb4(car);
-	ppuVar5 = PTR_DAT_000294a8;
+	// car list reorder (seems to be a double linked list)
+	FUN_00018eb4(car->car_data_ptr); //initialize car list pointers
+	r0 = *g_car_array;
 	do {
-		ppuVar9 = ppuVar5;
-		puVar11 = ppuVar9[0x14];
-		if (puVar11 == node) {
-			uVar6 = car->ai_state2 & 4;
-		}
-		if (puVar11 == node && uVar6 == 0) {
-			node = node + 1;
-		} else if (node < (int) puVar11) {
-			uVar17 = FUN_00018e6c(ppuVar9, car->car_data_pointer);
+		if (r0->track_slice == node && (car->ai_state & 4 == 0)) {
+			node++;
+		} else if (node < r0->track_slice) {
+			FUN_00018e6c(r0, car->car_data_ptr); // insert car after r0
 			break;
 		}
-		uVar6 = ppuVar9;
-		ppuVar5 = ppuVar9;
-	} while (uVar6 != 0);
-	uVar17 = FUN_00018e88(ppuVar9, car->car_data_pointer);
-
-	iVar12 = DAT_00029694;
-	if (side == 0) {
-		uVar17 = CONCAT44(car->ai_state2, car->ai_state2) & 0x4ffffffff;
-	}
+		r0 = r0[1];
+	} while (r0 != 0);
+	FUN_00018e88(r0, car->car_data_ptr); // insert car before r0
 	*/
 
+	// refactor to tnfs_ai_set_cop_zone()
 	if ((side == 0) && ((car->ai_state & 4) == 0)) {
 		car->car_road_speed = -0xDE38D;
 		car->speed_target = car->car_road_speed;
@@ -383,13 +378,41 @@ void tnfs_ai_respawn_do(tnfs_car_data *car, int node, int side, int centerline, 
 	car->position.y += fixmul(car->target_center_line, car->road_fence_normal.y);
 	car->position.z += fixmul(car->target_center_line, car->road_fence_normal.z);
 
-	if (tnfs_track_node_update(car)) {
+	//refactor to tnfs_ai_respawn_reset()
+	node_new = car->track_slice;
+	if (tnfs_track_node_find(&car->position, &node_new)) {
+		car->track_slice = node_new;
 		tnfs_track_update_vectors(car);
 	}
+	if ((car->ai_state & 0x1000U) == 0) {
+		(car->matrix).ax = (car->road_fence_normal).x;
+		(car->matrix).ay = (car->road_fence_normal).y;
+		(car->matrix).az = (car->road_fence_normal).z;
+		(car->matrix).bx = (car->road_surface_normal).x;
+		(car->matrix).by = (car->road_surface_normal).y;
+		(car->matrix).bz = (car->road_surface_normal).z;
+		(car->matrix).cx = (car->road_heading).x;
+		(car->matrix).cy = (car->road_heading).y;
+		(car->matrix).cz = (car->road_heading).z;
+	} else {
+		(car->matrix).ax = -(car->road_fence_normal).x;
+		(car->matrix).ay = -(car->road_fence_normal).y;
+		(car->matrix).az = -(car->road_fence_normal).z;
+		(car->matrix).bx = (car->road_surface_normal).x;
+		(car->matrix).by = (car->road_surface_normal).y;
+		(car->matrix).bz = (car->road_surface_normal).z;
+		(car->matrix).cx = -(car->road_heading).x;
+		(car->matrix).cy = -(car->road_heading).y;
+		(car->matrix).cz = -(car->road_heading).z;
+	}
+	if (car->steer_angle != 0) {
+		math_matrix_set_rot_Y(&mat_car_rotate,car->steer_angle);
+		//software_interrupt(0x50001);
+		math_matrix_multiply(&car->collision_data.matrix, &car->matrix, &mat_car_rotate);
+	}
 
-	// ...
-	tnfs_collision_data_set(car);
 
+	car->collision_data.state_timer = 0;
 	tnfs_ai_get_speed_factor(car);
 
 	// for traffic cars

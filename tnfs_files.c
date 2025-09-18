@@ -846,13 +846,27 @@ int read_carmodel_file(char * carname, tnfs_carmodel3d * carmodel) {
 		carmodel->lrr0 = seekToken(ori3, "lrr0");
 	}
 
+	// FIX: scale up F512TR model
+	tnfs_polygon * poly;
+	if (strcmp("F512TR", carname) == 0) {
+		for (int i = 0; i < carmodel->model.numPolys; i++) {
+			poly = &carmodel->model.mesh[i];
+			for (int j = 0; j < 3; j++) {
+				poly->points[j * 3] *= 1.2f;
+				poly->points[j * 3 + 1] *= 1.15f;
+				poly->points[j * 3 + 2] *= 1.1f;
+				poly->points[j * 3 + 2] += 0.2f;
+			}
+		}
+	}
+
 	free(filedata);
 	printf("Loaded car model file %s.\n", filename);
 	return 1;
 }
 
 
-int g_lod_sequence[10] = { 4, 8, 16, 20, 12, 24, 28, 32, 0, 0 };
+int g_lod_sequence[12] = { 4, 8, 16, 20,   0, 12, 24, 32,  0, 12, 24, 32 };
 
 /*
  * Read track PKT files
@@ -883,12 +897,15 @@ int read_track_pkt_file(char * trackname) {
 	fclose(fileptr);
 
 	// Group 0: Terrain textures
+	for (i = 0; i < 256; i++) {
+		g_terrain_texPkt[i] = 0;
+	}
 	for (i = 0; i < filedata[0x23]; i++) {
 		if (readFixed32(filedata, i * 4 + 0x24)) {
 			wpath[1] = i;
 		}
 		k = 0;
-		for (j = 0; j < 10; j++) {
+		for (j = 0; j < 12; j++) {
 			if (k == 4) break;
 			wpath[2] = g_lod_sequence[j];
 			obj = read_wwww(filedata, wpath, 3);

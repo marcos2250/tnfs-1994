@@ -788,7 +788,8 @@ extern int g_smoke_texPkt[5];
 extern tnfs_vec3 g_shadow_points[4];
 extern tnfs_vec9 g_shadow_matrix;
 
-extern struct tnfs_smoke_puff g_smoke[30];
+#define SMOKE_PUFFS 10
+extern struct tnfs_smoke_puff g_smoke[SMOKE_PUFFS];
 
 // common functions
 void tnfs_init_sim();

@@ -19,31 +19,21 @@ int g_filesize = 0;
 GLfloat matrix[16] = { 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1 };
 vector3f cam_orientation = { 0, 0, 0 };
 
-void gfx_init_stuff() {
+int gfx_init_stuff() {
 	FILE * fileptr;
 	// initialize Trixie font
 	fileptr = fopen("assets/frontend/display/Trixie.3fn","rb");
 	if (fileptr == 0) {
-		printf("File not found!\n");
-		return;
+		printf("File not found: assets/frontend/display/Trixie.3fn\n");
+		printf("In order to play, you should unpack TNFS CD contents into 'assets' folder!\n");
+		return 0;
 	}
 	if (!fread(&g_fontdata, 4464, 1, fileptr)) {
 		printf("Unable to read file!\n");
-		return;
+		return 0;
 	};
 	fclose(fileptr);
-}
-
-void dumpHexData(byte * data) {
-	byte * ptr = data;
-	for (int j = 0; j < 32; j++) {
-		printf("%4x: ", j);
-		for (int i = 0; i < 0x10; i++) {
-			printf("%2x ", *ptr);
-			ptr++;
-		}
-		printf("\n");
-	}
+	return 1;
 }
 
 shpm_image * gfx_locateshape(byte *data, char *shapeid) {
@@ -183,10 +173,12 @@ void fileView_drawImage(byte * file, int pos) {
 		printf("CCB at 0x%x\n", pos);
 		ccb = (ccb_chunk*) obj;
 		gfx_draw_ccb(ccb, 0, -990);
-	} else {
+	} else if (obj[0] == 'S' && obj[1] == 'H' && obj[2] == 'P' && obj[3] == 'M') {
 		printf("SHPM at 0x%x\n", pos);
 		shape = (shpm_image*) obj;
 		gfx_draw_shpm(shape, 0, -990);
+	} else {
+		printf("fileView_drawImage: unknown token at 0x%x\n", pos);
 	}
 }
 
@@ -338,7 +330,7 @@ void gfx_drawSmoke() {
 	glEnable(GL_BLEND);
 	glBlendEquation(GL_FUNC_ADD);
 	glBlendFunc(GL_ONE, GL_ONE);
-	for (int i = 0; i < 30; i++) {
+	for (int i = 0; i < SMOKE_PUFFS; i++) {
 		smoke = &g_smoke[i];
 		if (smoke->time <= 0) continue;
 		glMatrixMode(GL_MODELVIEW);
@@ -353,6 +345,7 @@ void gfx_drawSmoke() {
 		glTranslatef(((float) (smoke->position.x - camera.position.x)) / 0x10000,
 					 ((float) (smoke->position.y - camera.position.y)) / 0x10000,
 					 ((float)(-smoke->position.z + camera.position.z)) / 0x10000);
+		glRotatef(-cam_orientation.y, 0, 1, 0);
 
 		w = (smoke->time / 256);
 		glColor4f(1.0f, 1.0f, 1.0f, 0.1f);
@@ -469,7 +462,12 @@ void gfx_drawCarWheel(tnfs_car_data * car, tnfs_carmodel3d * carModel, int isFro
 	float steer, width, pX, pZ;
 	int viewAngle = math_angle_wrap(car->angle.y - camera.orientation.y);
 
-	pX = ((float) car->car_specs_ptr->body_width) / 0x10000 / 2;
+	if (car->car_model_id == 1 && isFront) {
+		//FIX: diablo's narrow front wheel track
+		pX = 0.9f;
+	} else {
+		pX = ((float) car->car_specs_ptr->body_width) / 0x10000 / 2;
+	}
 	pZ = ((float) car->car_specs_ptr->wheelbase) / 0x10000 / 2;
 
 	if (isFront) {
@@ -994,5 +992,6 @@ void gfx_render_scene() {
 
 	glDisable(GL_DEPTH_TEST);
 	gfx_drawTach();
+
 }
 
