@@ -8,8 +8,6 @@
 #include "tnfs_ai.h"
 
 // globals
-int g_carcar_bump_speed = 0; //DAT_000f9a70 800eae58
-int g_collision_force; // 000f9a74;
 int g_surf_distance; // 000f9a78
 int g_surf_clipping = 1;
 tnfs_vec3 g_collision_v_speed;
@@ -17,18 +15,6 @@ int g_const_8CCC = 0x8ccc; //DAT_800eae70
 int g_const_7333 = 0x7333; //DAT_800eae74
 int g_const_CCCC = 0xCCCC; //DAT_800eae78
 
-
-void tnfs_collision_off() {
-	//printf("Collision OFF \n");
-	// ????
-	DAT_000fae60 = 1;
-}
-
-void tnfs_collision_on() {
-	//printf("Collision ON \n");
-	// ????
-	DAT_000fae60 = 0;
-}
 
 void tnfs_collision_rebound(tnfs_collision_data *body, tnfs_vec3 *l_edge, tnfs_vec3 *speed, tnfs_vec3 *normal) {
 	tnfs_vec3 cross_prod;
@@ -115,14 +101,12 @@ void tnfs_collision_rebound(tnfs_collision_data *body, tnfs_vec3 *l_edge, tnfs_v
 
 	// change linear and rotation speeds
 	if (force > 0) {
-		g_collision_force = force;
-
 		// force vector
 		normal_accel.x = math_mul(force, normal->x) + accel.x;
 		normal_accel.y = math_mul(force, normal->y) + accel.y;
 		normal_accel.z = math_mul(force, normal->z) + accel.z;
 
-		DAT_000f9a74 = force;
+		g_collision_force = force;
 
 		body->speed.x += math_mul(body->linear_acc_factor, normal_accel.x);
 		body->speed.y += math_mul(body->linear_acc_factor, normal_accel.y);
@@ -147,7 +131,7 @@ void tnfs_collision_detect(tnfs_collision_data *body, tnfs_vec3 *surf_normal, tn
 	tnfs_vec3 g_edge;
 	tnfs_vec3 backoff;
 
-	DAT_000f9a74 = 0;
+	g_collision_force = 0;
 
 	// zero normal check
 	if (((surf_normal->x == 0) && (surf_normal->y == 0)) && (surf_normal->z == 0)) {
@@ -291,26 +275,6 @@ void tnfs_collision_update_vectors(tnfs_collision_data *body) {
 	/* apply gravity */
 	body->speed.y -= 0x53b6;
 
-	// check angular speed
-	if (body->angular_speed.x > 0xf0000) {
-		body->angular_speed.x = 0xf0000;
-	}
-	if (body->angular_speed.y > 0xf0000) {
-		body->angular_speed.y = 0xf0000;
-	}
-	if (body->angular_speed.z > 0xf0000) {
-		body->angular_speed.z = 0xf0000;
-	}
-	if (body->angular_speed.x < -0xf0000) {
-		body->angular_speed.x = -0xf0000;
-	}
-	if (body->angular_speed.y < -0xf0000) {
-		body->angular_speed.y = -0xf0000;
-	}
-	if (body->angular_speed.z < -0xf0000) {
-		body->angular_speed.z = -0xf0000;
-	}
-
 	// update matrix
 	aux = math_vec3_length(&body->angular_speed);
 	aux = math_mul(aux, 0x888);
@@ -319,24 +283,12 @@ void tnfs_collision_update_vectors(tnfs_collision_data *body) {
 	math_matrix_multiply(&body->matrix, &body->matrix, &matrix);
 }
 
-void FUN_0005b29f(tnfs_car_data * car) {
-	//stub
-}
-
 
 /*
  * after a crash, move updated collision_data back to car_data
  */
 void tnfs_collision_data_get(tnfs_car_data *car, int crash_state) {
 	tnfs_collision_data *body;
-
-	if (car == g_car_ptr_array[g_player_id]) {
-		DAT_000FDCEC = -1;
-		DAT_000FDCF0 = -1;
-		if (car->crash_state == 4) {
-			tnfs_collision_off();
-		}
-	}
 
 	body = &car->collision_data;
 	car->crash_state = crash_state;
@@ -355,9 +307,6 @@ void tnfs_collision_data_get(tnfs_car_data *car, int crash_state) {
 	body->state_timer = 0;
 	car->slide_front = 0;
 	car->slide_rear = 0;
-	if (car->car_id2 > 0 && car->car_id2 < g_number_of_players) {
-		FUN_0005b29f(car);
-	}
 }
 
 void tnfs_collision_main(tnfs_car_data *car) {
@@ -446,15 +395,15 @@ void tnfs_collision_main(tnfs_car_data *car) {
 	/* car colliding to track fence */
 	tnfs_collision_detect(collision_data, &fenceNormal, &fencePosition);
 
-    if (local_20 < DAT_000f9a74) {
-      local_20 = DAT_000f9a74;
+    if (local_20 < g_collision_force) {
+      local_20 = g_collision_force;
     }
 
 	/* car collision to ground */
 	tnfs_collision_detect(collision_data, &roadNormal, &roadPosition);
 
-    if (local_20 < DAT_000f9a74) {
-      local_20 = DAT_000f9a74;
+    if (local_20 < g_collision_force) {
+      local_20 = g_collision_force;
     }
 
 	/* ... lots of code goes here -- crash recovery ... */
@@ -482,12 +431,12 @@ void tnfs_collision_main(tnfs_car_data *car) {
 		iVar4 = 4;
 	}
 
-	if (DAT_000f99f0 < local_20) {
+	if (g_collision_bump_ref < local_20) {
 		tnfs_car_local_position_vector(car, &local_28, &local_24);
 		if (car->collision_data.mass > 0x8000) {
 			tnfs_sfx_play(-1, iVar4, 1, 0, local_24, local_28);
 		}
-		DAT_000f99f0 = local_20 + 0x8000;
+		g_collision_bump_ref = local_20 + 0x8000;
 		DAT_000f99ec = 10;
 	}
 
@@ -557,20 +506,10 @@ void tnfs_collision_data_set(tnfs_car_data *car) {
 
 void tnfs_collision_rollover_start_2(tnfs_car_data *car) {
 	tnfs_collision_data_set(car);
-	car->is_wrecked = 1;
 	car->crash_state = 4;
-	//FUN_8004ce14(&PTR_80103660);
 	car->ai_state = car->ai_state & 0xfffffdff;
-	car->collision_data.state_timer = 300;
+	car->collision_data.state_timer = 400;
 	tnfs_replay_highlight_record(0x5c);
-	if (sound_flag == 0) {
-		if (car != player_car_ptr) {
-			return;
-		}
-	} else if (1 < car->car_id) {
-		return;
-	}
-	tnfs_collision_on();
 }
 
 
@@ -590,7 +529,7 @@ void tnfs_collision_rollover_start(tnfs_car_data *car, int force_z, int force_y,
 	car->collision_data.angular_speed.y -= math_mul(force_z, car->collision_data.matrix.by);
 	car->collision_data.angular_speed.z -= math_mul(force_z, car->collision_data.matrix.bz);
 	if ((car->ai_state & 4U) != 0) {
-		//  FUN_800534e0(0);
+		tnfs_ai_police_reset_state(0);
 	}
 }
 
@@ -1577,7 +1516,7 @@ char tnfs_collision_carcar_rebound(tnfs_collision_data *body1, tnfs_collision_da
 	iVar1 = math_div(((iVar2 - iVar1) - iVar3) + iVar4, (body1->linear_acc_factor >> 1) + (body2->linear_acc_factor >> 1) + (iVar5 >> 1) + (iVar6 >> 1));
 	if (-1 < iVar1) {
 		iVar2 = math_mul(g_const_8CCC, iVar1);
-		g_carcar_bump_speed = iVar2;
+		g_collision_force = iVar2;
 		local_90.x = math_mul(iVar2, col_direction->x);
 		local_90.y = math_mul(iVar2, col_direction->y);
 		local_90.z = math_mul(iVar2, col_direction->z);
@@ -1636,12 +1575,10 @@ int tnfs_collision_carcar_start(tnfs_car_data *car1, tnfs_car_data *car2) {
 	tnfs_vec3 col_direction;
 	tnfs_vec3 col_position;
 
-	int local_38 = 0;
-	int local_34 = 0;
-	int local_30 = 0;
-	int local_2c = 0;
-	int doWreckCarA = 0;
-	int doWreckCarB = 0;
+	int doWreckPlayer = 0;
+	int doWreckOpp = 0;
+	int doWreckCop = 0;
+
 	int max_crash_speed = 0xd0000;
 
 	if (!tnfs_collision_carcar_box_detect(&car1->collision_data, &car2->collision_data, &col_position, &col_direction)) {
@@ -1651,54 +1588,34 @@ int tnfs_collision_carcar_start(tnfs_car_data *car1, tnfs_car_data *car2) {
 		return 0;
 	}
 
-	// players are less prone to crash
-	if ((car1->car_id >= 0) && (car1->car_id < g_number_of_players)) {
-		local_38 = 1;
-		doWreckCarA = 1;
+	// player car crash
+	doWreckPlayer = car1 == player_car_ptr || car2 == player_car_ptr;
+	if (doWreckPlayer) {
 		max_crash_speed = 0x100000;
 	}
-	if ((car2->car_id >= 0) && (car2->car_id < g_number_of_players)) {
-		local_38 = 1;
-		doWreckCarB = 1;
-		max_crash_speed = 0x100000;
-	}
-
-	if ((car1 == DAT_00153BC4) || (car2 == DAT_00153BC4)) {
-		local_34 = 1;
-	}
-	if ((car1 == g_car_ptr_array[0]) || (car2 == g_car_ptr_array[0])) {
-		local_30 = 1;
-	}
+	doWreckOpp = car1 == &g_car_array[1] || car2 == &g_car_array[1];
+	doWreckCop = car1 == &g_car_array[2] || car2 == &g_car_array[2];
 
 	// hit and run
-	if (g_carcar_bump_speed < max_crash_speed) {
+	if (g_collision_force < max_crash_speed) {
 		if (car1->crash_state != 4) {
 			tnfs_collision_data_get(car1, car1->crash_state);
 		}
 		if (car2->crash_state != 4) {
 			tnfs_collision_data_get(car2, car2->crash_state);
 		}
-		if ((doWreckCarA && !car1->is_wrecked) || (doWreckCarB && !car2->is_wrecked)) {
+		if (doWreckPlayer || doWreckOpp) {
 			car1->car_road_speed = tnfs_car_road_speed_2(car1);
 			car2->car_road_speed = tnfs_car_road_speed_2(car2);
 			if (abs(car1->car_road_speed) > 0x100000 || abs(car2->car_road_speed) > 0x100000) {
-				tnfs_replay_highlight_record((DAT_000f99f4 + (local_34 * 2 + local_38 * 4 + local_2c * 8 + local_30) * 4));
+				tnfs_replay_highlight_record(DAT_000f99f4 + doWreckPlayer * 4 + doWreckOpp * 2 + doWreckCop * 4);
 			}
 		}
 		return 1;
 	}
 
 	// crash and rollover
-	local_2c = 1;
-
-	tnfs_replay_highlight_record((DAT_000f99f4 + (local_34 * 2 + local_38 * 4 + 8 + local_30) * 4));
-
-	if ((g_car_ptr_array[g_player_id] == car1) && (car1->crash_state != 4)) {
-		tnfs_collision_on();
-	}
-	if ((g_car_ptr_array[g_player_id] == car2) && (car2->crash_state != 4)) {
-		tnfs_collision_on();
-	}
+	tnfs_replay_highlight_record(DAT_000f99f4 + doWreckPlayer * 4 + 8 + doWreckOpp * 2 + doWreckCop * 4);
 
 	car1->crash_state = 4;
 	car2->crash_state = 4;
@@ -1706,24 +1623,22 @@ int tnfs_collision_carcar_start(tnfs_car_data *car1, tnfs_car_data *car2) {
 	if (abs((car1->collision_data.speed).x) > 0x8000 //
  	 || abs((car1->collision_data.speed).y) > 0x8000 //
 	 || abs((car1->collision_data.speed).z) > 0x8000) {
-		car1->collision_data.state_timer = 300;
+		car1->collision_data.state_timer = 400;
 	}
 
 	if (abs((car2->collision_data.speed).x) > 0x8000 //
  	 || abs((car2->collision_data.speed).y) > 0x8000 //
 	 || abs((car2->collision_data.speed).z) > 0x8000) {
-		car2->collision_data.state_timer = 300;
+		car2->collision_data.state_timer = 400;
 	}
 
-	if (doWreckCarA && !car1->is_wrecked) {
-		tnfs_track_update_vectors(car1);
-		car1->is_wrecked = 1;
-		tnfs_collision_carcar_exageration(car1);
-	}
-	if (doWreckCarB && !car2->is_wrecked) {
-		tnfs_track_update_vectors(car2);
-		car2->is_wrecked = 1;
-		tnfs_collision_carcar_exageration(car2);
+	if (doWreckPlayer) {
+		tnfs_track_update_vectors(player_car_ptr);
+		if (doWreckOpp) {
+			g_car_array[1].position.x += 0x32; //???
+		}
+		player_car_ptr->is_crashed = 1;
+		tnfs_collision_carcar_exageration(player_car_ptr);
 	}
 	return 1;
 }
@@ -1747,7 +1662,7 @@ int tnfs_collision_carcar(tnfs_car_data *car1, tnfs_car_data *car2) {
 		return 0;
 	}
 
-	//if (DAT_000f99f0 == 0) { //FIXME ???
+	if (g_collision_force > g_collision_bump_ref) {
 		local_2c = car1->track_slice - g_camera_node;
 		if (car1 == g_car_ptr_array[g_player_id]) {
 			tnfs_car_local_position_vector(car2, &local_34, &local_30);
@@ -1755,11 +1670,11 @@ int tnfs_collision_carcar(tnfs_car_data *car1, tnfs_car_data *car2) {
 			tnfs_car_local_position_vector(car1, &local_34, &local_30);
 		}
 		tnfs_sfx_play(-1, 2, 0, local_2c, local_30, local_34);
-		DAT_000f99f0 = 0x8000;
+		g_collision_bump_ref = g_collision_force + 0x8000;
 		DAT_000f99ec = 10;
-	//}
+	}
 
-	if (g_car_ptr_array[g_player_id]->is_wrecked != 0) {
+	if (g_car_ptr_array[g_player_id]->is_crashed != 0) {
 		if (selected_camera == 0) {
 			tnfs_camera_set(&camera, 2); //change to heli cam
 		}

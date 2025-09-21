@@ -115,12 +115,14 @@ struct tnfs_smoke_puff g_smoke[SMOKE_PUFFS];
 int DAT_800eb6a4 = 0; //800eb6a4
 int DAT_8010d310 = 0; //8010d310
 
+int g_collision_bump_ref = 0x6666; //DAT_000f9a70 800eae58
+int g_collision_bump_val = 0; // INT_000f99f0
+int g_collision_force; // 000f9a74;
 int DAT_000F9BB0 = 0;
 int DAT_000f99e4 = 0x10000;
 int DAT_000f99e8 = 0x34000;
 int DAT_000f99ec = 10; //800eae14
 int DAT_000f99f0 = 0x8000;
-int DAT_000f9a74 = 0;
 int DAT_000fae60 = 0;
 int DAT_000FDB94 = 0;
 int DAT_000FDCEC = 0;
@@ -158,6 +160,7 @@ void auto_generate_track() {
 	int slope = 0;
 	int slant = 0;
 	int heading = 0;
+	int rnd = 0;	
 	int i, j, k, v;
 	int texCount = 0;
 	long vx, vy, vz;
@@ -171,10 +174,11 @@ void auto_generate_track() {
 		if (i > 20 && i % 20 == 0) {
 			g_lcg_random_nbr = g_lcg_random_mod * g_lcg_random_seed;
 			g_lcg_random_mod = g_lcg_random_nbr & 0xffff;
+			rnd = g_lcg_random_nbr;
 		}
 
-		if (g_lcg_random_nbr & 128) {
-			if (g_lcg_random_nbr & 64) {
+		if (rnd & 128) {
+			if (rnd & 64) {
 				slope -= 10;
 			} else {
 				slope += 10;
@@ -182,8 +186,8 @@ void auto_generate_track() {
 		} else {
 			slope *= 0.9;
 		}
-		if (g_lcg_random_nbr & 32) {
-			if (g_lcg_random_nbr & 16) {
+		if (rnd & 32) {
+			if (rnd & 16) {
 				slant -= 20;
 			} else {
 				slant += 20;
@@ -400,7 +404,6 @@ void tnfs_reset_car(tnfs_car_data *car) {
 	car->abs_on = 0;
 	//car->abs_enabled = 0;
 	car->is_crashed = 0;
-	car->is_wrecked = 0;
 	car->time_off_ground = 0;
 	car->slide_front = 0;
 	car->slide_rear = 0;
@@ -599,12 +602,11 @@ void tnfs_Fiziks_InitCar(tnfs_car_data *car) {
 	car->collision_data.moment_of_inertia = 0x10000;
 	car->collision_data.linear_acc_factor = 0xf646;
 	car->collision_data.angular_acc_factor = 0x7dd4;
-	car->collision_data.size.x = car_specs.body_width / 2;
+	car->collision_data.size.x = car->car_specs_ptr->body_width / 2;
 	car->collision_data.size.y = 0x92f1;
-	car->collision_data.size.z = car_specs.body_length / 2;
+	car->collision_data.size.z = car->car_specs_ptr->body_length / 2;
 	car->collision_data.edge_length = math_vec3_length(&car->collision_data.size);
 }
-
 
 void tnfs_init_car() {
 	int i;
@@ -617,7 +619,6 @@ void tnfs_init_car() {
 	player_car_ptr = &g_car_array[0];
 
 	// load car specs
-	//tnfs_create_car_specs();
 	read_carspecs_file(g_car_files[g_player_car]);
 
 	car->crash_state = 2;
@@ -656,32 +657,6 @@ void tnfs_init_car() {
 	tnfs_reset_car(car);
 }
 
-void tnfs_initial_position(tnfs_car_data *car) {
-	int iVar1;
-	int iVar2;
-
-	iVar1 = (track_data[10].num_lanes & 0xf) * 0x28 + (track_data[10].roadRightMargin << 3);
-
-	iVar2 = g_race_positions[car->car_id2];
-
-	(car->position).x = (iVar1 * -0x100) / 2 + (iVar2 % 2) * iVar1 * 0x100;
-
-	if (((track_data[g_slice_mask & 0x14].num_lanes >> 4 == 2) //
-		&& ((track_data[g_slice_mask & 0x14].num_lanes & 0xf) == 1)) //
-		&& (iVar1 % 2 == 0)) {
-		(car->position).x += iVar1 * -0x100;
-	}
-
-	if (g_racer_cars_in_scene < 3) {
-		car->track_slice = (iVar2 / 2) * -4 + 0x20;
-	} else {
-		car->track_slice = iVar2 * -2 + 0x20;
-	}
-
-	car->track_center_distance = 0;
-	(car->position).z = track_data[car->track_slice & g_slice_mask].pos.z;
-}
-
 /* basic game controls */
 
 void tnfs_controls_update() {
@@ -695,7 +670,7 @@ void tnfs_controls_update() {
 		if (g_car_array[0].steer_angle < -0x1B0000)
 			g_car_array[0].steer_angle = -0x1B0000;
 	} else {
-		g_car_array[0].steer_angle >>= 1;//*= 0.8;
+		g_car_array[0].steer_angle >>= 1;
 	}
 	// throttle ramp
 	if (g_control_throttle) {
@@ -973,6 +948,32 @@ void tnfs_replay_highlight_record(char a) {
 
 /* common original TNFS functions */
 
+void tnfs_initial_position(tnfs_car_data *car) {
+	int iVar1;
+	int iVar2;
+
+	iVar1 = (track_data[10].num_lanes & 0xf) * 0x28 + (track_data[10].roadRightMargin << 3);
+
+	iVar2 = g_race_positions[car->car_id2];
+
+	(car->position).x = (iVar1 * -0x100) / 2 + (iVar2 % 2) * iVar1 * 0x100;
+
+	if (((track_data[g_slice_mask & 0x14].num_lanes >> 4 == 2) //
+		&& ((track_data[g_slice_mask & 0x14].num_lanes & 0xf) == 1)) //
+		&& (iVar1 % 2 == 0)) {
+		(car->position).x += iVar1 * -0x100;
+	}
+
+	if (g_racer_cars_in_scene < 3) {
+		car->track_slice = (iVar2 / 2) * -4 + 0x20;
+	} else {
+		car->track_slice = iVar2 * -2 + 0x20;
+	}
+
+	car->track_center_distance = 0;
+	(car->position).z = track_data[car->track_slice & g_slice_mask].pos.z;
+}
+
 int tnfs_racer_crossed_finish_line(tnfs_car_data *car) {
 	if ((g_number_of_players > 1) //
 			&& (car->track_slice < 0xe) //
@@ -984,15 +985,15 @@ int tnfs_racer_crossed_finish_line(tnfs_car_data *car) {
 		car->speed_z = car->speed_z / 2;
 		car->speed_x = car->speed_x / 2;
 	}
-		if (car->track_slice < 0xc) {
-			if (car->position.z < 0x120000) {
-				car->position.z = 0x120000;
-			}
-			return 1;
+	if (car->track_slice < 0xc) {
+		if (car->position.z < 0x120000) {
+			car->position.z = 0x120000;
 		}
-		if (car->track_slice > g_road_finish_node) {
-			return 2;
-		}
+		return 1;
+	}
+	if (car->track_slice > g_road_finish_node) {
+		return 2;
+	}
 	return 0;
 }
 
@@ -1352,7 +1353,7 @@ void tnfs_init_sim() {
 	g_stats_data.prev_lap_time = 0;
 	g_stats_data.lap_time_0x1c0 = 0;
 	g_stats_data.top_speed = 0;
-	g_stats_data.field_0x1c8 = 0;
+	g_stats_data.top_speed_2 = 0;
 	for (i = 0; i < 17; i++) {
 		g_stats_data.lap_timer[i] = 0;
 	}
@@ -1430,10 +1431,13 @@ void tnfs_update() {
 		tnfs_ai_respawn_00028cc4();
 	}
 	//FIX: disable cop if crashed or finished race
-	if (player_car_ptr->is_crashed || player_car_ptr->field_4c9) {
-		g_police_on_chase = 0;
-		g_cop_car_ptr->ai_state = 0x1e8;
+	if (g_cop_car_ptr != 0) {
+		if (player_car_ptr->is_crashed || player_car_ptr->field_4c9) {
+			g_police_on_chase = 0;
+			g_cop_car_ptr->ai_state = 0x1e8;
+		}
 	}
+
 
 	player_car_ptr->car_road_speed = tnfs_car_road_speed(player_car_ptr);
 

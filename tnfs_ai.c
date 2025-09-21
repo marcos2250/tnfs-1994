@@ -432,7 +432,6 @@ void tnfs_ai_respawn_do(tnfs_car_data *car, int node, int side, int centerline, 
 void tnfs_ai_respawn_00028eb0(tnfs_car_data *car, int flag) {
 	int direction;
 	int node;
-	int uVar3;
 
 	node = player_car_ptr->track_slice_lap;
 	car->slide_front = 0;
@@ -495,7 +494,7 @@ void tnfs_ai_respawn_00028eb0(tnfs_car_data *car, int flag) {
 		} else {
 			g_lcg_random_nbr = g_lcg_random_mod * g_lcg_random_seed;
 			g_lcg_random_mod = g_lcg_random_nbr & 0xffff;
-			uVar3 = ((g_lcg_random_nbr & 0xffffff) >> 8) * 0xb + 0x8000;
+			//uVar3 = ((g_lcg_random_nbr & 0xffffff) >> 8) * 0xb + 0x8000;
 			node = player_car_ptr->track_slice + 0x2b;// + (uVar3 >> 0x10);
 
 			if (direction == 0 && (car->ai_state & 4) == 0) {
@@ -617,7 +616,7 @@ void tnfs_ai_update_speed_targets(tnfs_car_data *car) {
 		if ((car->ai_state & 0x1000) == 0) {
 
 			// driving forward
-			if ((car->ai_state & 0x400) == 0) {
+			if ((car->ai_state & 4) == 0) {
 				// cruise speed
 				iVar1 = (g_ai_skill_cfg.traffic_base_speed >> 1) + (player_car_ptr->car_road_speed >> 1);
 				car->speed_target = iVar1;
@@ -955,9 +954,6 @@ void FUN_00002d8c(tnfs_car_data *car) {
 	tnfs_collision_data_set(car);
 	car->crash_state = 4;
 	car->collision_data.state_timer = 0x3c;
-	if (g_car_ptr_array[g_player_id] == car) {
-		tnfs_collision_on();
-	}
 }
 
 void tnfs_ai_fence_collision(tnfs_car_data *car) {
@@ -1513,13 +1509,8 @@ void tnfs_ai_police_busted() {
 }
 
 void FUN_0002ad5c(tnfs_car_data *car, int param_2) {
-	tnfs_car_data *ptVar1;
-	ptVar1 = car->car_data_ptr;
 	car->collision_data.field_084 = param_2;
-	ptVar1->crash_state = 1;
-	if ((ptVar1 == g_car_ptr_array[g_player_id]) && (ptVar1->crash_state == 4)) {
-		tnfs_collision_off();
-	}
+	car->crash_state = 1;
 }
 
 void tnfs_car_stop_0007d5c1(tnfs_car_data *car) {
@@ -1656,7 +1647,7 @@ void tnfs_ai_police_chase(tnfs_car_data *car, int lane, tnfs_vec3 *direction) {
 		g_police_speeding_ticket = 1; //++
 	}
 
-	if (((car->ai_state & 0x400) != 0) && (player_car_ptr->is_wrecked == 0)) {
+	if (((car->ai_state & 0x400) != 0) && (player_car_ptr->is_crashed == 0)) {
 
 		if ((car->car_road_speed < 0x10000) //
 				&& (player_car_ptr->speed < 0x10000) //
@@ -2376,7 +2367,7 @@ void tnfs_ai_collision_handler() {
 	int i;
 
 	if (DAT_000f99ec == 0) {
-		DAT_000f99f0 = 0x6666;
+		g_collision_bump_ref = 0x6666;
 	} else {
 		DAT_000f99ec = DAT_000f99ec - 1;
 	}

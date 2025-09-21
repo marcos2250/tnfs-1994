@@ -183,7 +183,7 @@ void simpleCamera(int car_id) {
 }
 
 void tnfs_camera_update(tnfs_camera *camera) {
-	int v1, v2, v3;
+	int v1, v3;
 	signed long local_10;
 	int local_11;
 	int local_23;
@@ -194,7 +194,7 @@ void tnfs_camera_update(tnfs_camera *camera) {
 	int local_28;
 	int local_32;
 	int local_33;
-	int local_38;
+	//int local_38;
 	int local_39;
 	int local_41;
 	int local_42;
@@ -383,7 +383,7 @@ void tnfs_camera_update(tnfs_camera *camera) {
 		vecB.y = (local_48 * (vecA.y >> 8) >> 8) + camera->car_ptr_2->position.y;
 		vecB.z = (local_48 * (vecA.z >> 8) >> 8) + camera->car_ptr_2->position.z;
 		local_39 = vecB.x - camera->next_position.x;
-		local_38 = vecB.y - camera->next_position.y;
+		//local_38 = vecB.y - camera->next_position.y;
 		local_46 = vecB.z - camera->next_position.z;
 
 		local_45 = math_atan2(local_46, local_39);

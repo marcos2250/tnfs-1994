@@ -453,7 +453,6 @@ typedef struct tnfs_car_data {
 	int tcs_on; //0x4AD
 	int abs_on; //0x4B1
 	// ...
-	int is_wrecked; //
 	int field_4c5; //0x4C5 checkpoint flick maneuvre
 	int field_4c9; //0x4C9
 	int field_4cd; //0x4CD crossed the finish line flag
@@ -645,7 +644,7 @@ typedef struct tnfs_stats_data {
 	// ...
 	int lap_time_0x1c0; //0x1c0
 	int top_speed; //0x1c4
-	int field_0x1c8; //0x1c8
+	int top_speed_2; //0x1c8
 } tnfs_stats_data;
 
 typedef struct tnfs_random_struct {
@@ -737,17 +736,17 @@ extern int g_selected_cheat;
 extern int selected_camera;
 extern tnfs_camera camera;
 
+extern int g_collision_bump_ref;
+extern int g_collision_bump_val;
+extern int g_collision_force;
 extern int DAT_000F9BB0;
 extern int DAT_000f99e4;
 extern int DAT_000f99e8;
 extern int DAT_000f99ec; //800eae14
-extern int DAT_000f99f0;
 extern int DAT_000fae60;
 extern int DAT_000FDB94;
 extern int DAT_000FDCEC;
 extern int DAT_000FDCF0;
-extern int DAT_000f9A70;
-extern int DAT_000f9a74;
 extern int g_lcg_random_mod;
 extern int g_lcg_random_nbr;
 extern int g_lcg_random_seed;
@@ -798,7 +797,7 @@ void tnfs_camera_set(tnfs_camera * camera, int id);
 void tnfs_reset_car(tnfs_car_data *car);
 void tnfs_update();
 void tnfs_crash_car();
-void tnfs_sfx_play(int a, int b, int c, int d, int e, int f);
+void tnfs_sfx_play(int a, int id1, int id2, int volume, int distance, int direction);
 void tnfs_car_local_position_vector(tnfs_car_data * car_data, int * angle, int * length);
 int tnfs_track_node_find(tnfs_vec3 *p_position, int *current);
 int tnfs_track_node_update(tnfs_car_data *car);
