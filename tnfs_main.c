@@ -242,6 +242,8 @@ void tnfs_race_enter() {
 			break;
 		}
 	}
+
+	sfx_clear_buffers();
 	isFrontEnd = 1;
 }
 

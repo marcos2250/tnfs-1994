@@ -209,6 +209,7 @@ void clearFileBuffer() {
 		g_file_assets[i].content = 0;
 		g_file_assets[i].length = 0;
 	}
+	file_counter = 0;
 }
 
 byte * seekNextCCB(byte *filedata) {

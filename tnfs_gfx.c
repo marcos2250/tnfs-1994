@@ -18,6 +18,7 @@ int g_filesize = 0;
 
 GLfloat matrix[16] = { 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1 };
 vector3f cam_orientation = { 0, 0, 0 };
+vector3f cam_position = { 0, 0, 0 };
 
 int gfx_init_stuff() {
 	FILE * fileptr;
@@ -173,12 +174,10 @@ void fileView_drawImage(byte * file, int pos) {
 		printf("CCB at 0x%x\n", pos);
 		ccb = (ccb_chunk*) obj;
 		gfx_draw_ccb(ccb, 0, -990);
-	} else if (obj[0] == 'S' && obj[1] == 'H' && obj[2] == 'P' && obj[3] == 'M') {
+	} else {
 		printf("SHPM at 0x%x\n", pos);
 		shape = (shpm_image*) obj;
 		gfx_draw_shpm(shape, 0, -990);
-	} else {
-		printf("fileView_drawImage: unknown token at 0x%x\n", pos);
 	}
 }
 
@@ -416,7 +415,7 @@ void gfx_drawShadows() {
 			glRotatef(cam_orientation.z, 0, 0, 1);
 		}
 		glRotatef(cam_orientation.y, 0, 1, 0);
-		glTranslatef(((float) -camera.position.x) / 0x10000, ((float) -camera.position.y) / 0x10000, ((float) camera.position.z) / 0x10000);
+		glTranslatef(cam_position.x, cam_position.y, cam_position.z);
 		glMultMatrixf(matrix);
 
 		w = ((float)car->car_width) / 0x10000 / 2;
@@ -535,7 +534,7 @@ void gfx_drawVehicle(tnfs_car_data * car) {
 		glRotatef(cam_orientation.z, 0, 0, 1);
 	}
 	glRotatef(cam_orientation.y, 0, 1, 0);
-	glTranslatef(((float) -camera.position.x) / 0x10000, ((float) -camera.position.y) / 0x10000, ((float) camera.position.z) / 0x10000);
+	glTranslatef(cam_position.x, cam_position.y, cam_position.z);
 	glMultMatrixf(matrix);
 
 	carModel = &g_carmodels[car->car_model_id];
@@ -591,7 +590,7 @@ void gfx_drawHorizon() {
 	int layer;
 	int texture;
 	int i;
-	float x1, x2, y1, y2, z1, z2;
+	float a, x1, x2, y1, y2, z1, z2;
 
 	if (g_track_sel == 2) {
 		glClearColor(0.5f, 0.7f, 0.9f, 1.0f); //city = cyan
@@ -616,11 +615,13 @@ void gfx_drawHorizon() {
 
 	layer = 2;
 	while (layer--) {
+		a = 0;
 		for (i = 0; i < 12; i++) {
-			x1 = cosf(i * 0.52359f);
-			z1 = sinf(i * 0.52359f);
-			x2 = cosf((i+1) * 0.52359f);
-			z2 = sinf((i+1) * 0.52359f);
+			x1 = cosf(a);
+			z1 = sinf(a);
+			a += 0.52359f;
+			x2 = cosf(a);
+			z2 = sinf(a);
 			texture = i % 6;
 
 			if (layer) {
@@ -762,7 +763,7 @@ void gfx_drawRoad() {
 		glRotatef(cam_orientation.z, 0, 0, 1);
 	}
 	glRotatef(cam_orientation.y, 0, 1, 0);
-	glTranslatef(((float) -camera.position.x) / 0x10000, ((float) -camera.position.y) / 0x10000, ((float) camera.position.z) / 0x10000);
+	glTranslatef(cam_position.x, cam_position.y, cam_position.z);
 
 	glColor3f(1.0f, 1.0f, 1.0);
 	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
@@ -970,6 +971,10 @@ void gfx_render_scene() {
 	cam_orientation.x = ((float) camera.orientation.x) * 0.0000214576733981; //(360/0xFFFFFF)
 	cam_orientation.y = ((float) camera.orientation.y) * 0.0000214576733981; //(360/0xFFFFFF)
 	cam_orientation.z = -((float) camera.orientation.z) * 0.0000214576733981; //(360/0xFFFFFF)
+	// inverted axis camera position
+	cam_position.x = ((float) -camera.position.x) / 0x10000;
+	cam_position.y = ((float) -camera.position.y) / 0x10000;
+	cam_position.z = ((float) camera.position.z) / 0x10000;
 
 	gfx_drawHorizon();
 	glEnable(GL_DEPTH_TEST);

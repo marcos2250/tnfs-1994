@@ -1855,7 +1855,7 @@ void FUN_00077a05(tnfs_car_data *car, tnfs_car_data *others[3], int lane, int la
 	int local_28;
 	int local_18;
 
-	if (((lane == laneR) || (others[1] == &g_car_array[0])) || (others[1]->crash_state == 4)) {
+	if ((lane == laneR) || (others[1] == 0) || (others[1]->crash_state == 4)) {
 		local_18 = speed->y;
 	} else {
 		local_28 = car->track_slice_lap - others[1]->track_slice_lap;

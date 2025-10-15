@@ -97,7 +97,7 @@ int g_terrain_texPkt[256];
 int g_horizon_texPkt[12];
 int g_fences[600];
 
-struct tnfs_object3d g_scenery_3d_objects[8];
+struct tnfs_object3d g_scenery_3d_objects[1];
 struct tnfs_scenery_descriptor g_scenery_models[64];
 struct tnfs_scenery_object g_scenery_object[1000];
 int g_scenery_texPkt[256];
@@ -122,23 +122,14 @@ int DAT_000F9BB0 = 0;
 int DAT_000f99e4 = 0x10000;
 int DAT_000f99e8 = 0x34000;
 int DAT_000f99ec = 10; //800eae14
-int DAT_000f99f0 = 0x8000;
-int DAT_000fae60 = 0;
 int DAT_000FDB94 = 0;
-int DAT_000FDCEC = 0;
-int DAT_000FDCF0 = 0;
-int DAT_000f9A70 = 0;
 int g_lcg_random_mod = 0xFFFF; //800db6bc
 int g_lcg_random_nbr = 0x12345678; //800db6c0 g_car_random_index
 int g_lcg_random_seed = 0x12345679; // random value
 int g_camera_node = 0; //144914
 int g_slice_mask = 0xFFFF; // 14dccc
 int g_track_slice = 0x76b; //00153b0c
-int DAT_00153B20 = 0; // game over flag
-int DAT_00153B24 = 0; // game over flag 2?
-tnfs_car_data * DAT_00153BC4 = 0; //player car ptr 2
-int DAT_00165148 = 0; // center lane distance/margin
-int DAT_00165340 = 0;
+int DAT_00165148 = 1; // center lane distance/margin
 int g_player_id = 0; //16707C
 int g_cam_change_delay = 0; // 00143844
 
@@ -579,14 +570,13 @@ void tnfs_Fiziks_InitCar(tnfs_car_data *car) {
 	car->tire_grip_front = car->front_friction_factor;
 	car->tire_grip_rear = car->rear_friction_factor;
 
-	/*
+	// unused code
 	aux = math_mul(car->weight_distribution_rear, car->car_specs_ptr->wheelbase);
 	aux = math_mul(aux, aux);
 	math_mul(aux, car->weight_distribution_front);
 	aux = math_mul(car->weight_distribution_front, car->car_specs_ptr->wheelbase);
 	aux = math_mul(aux, aux);
 	math_mul(aux, car->weight_distribution_rear);
-	*/
 
 	aux = car->car_specs_ptr->wheelbase;
 	aux = math_mul(aux, aux);
@@ -859,7 +849,7 @@ void tnfs_sfx_play(int a, int id1, int id2, int volume, int distance, int direct
 		vol = 1;
 	} else if (distance < 0x100000) {
 		vol = 0.5;
-	} else if (distance < 0x800000) {
+	} else if (distance < 0x400000) {
 		vol = 0.25;
 	} else {
 		return;
@@ -899,11 +889,11 @@ void sfx_update() {
 
 	// engine sound
 	if (car->is_crashed) {
-		sfx_play_sound(2, 1, 0, 0);
+		f = 0;
 	} else {
 		f = ((float)car->rpm_engine) / 14000;
-		sfx_play_sound(2, 1, f, f);
 	}
+	sfx_play_sound(2, 1, f, f);
 
 	// cop siren
 	if (g_cop_car_ptr && ((g_cop_car_ptr->ai_state & 0x408) == 0x408)) {
@@ -921,6 +911,12 @@ void sfx_update() {
 		f = ((float)car->speed_local_lon) / 0x600000;
 	}
 	sfx_play_sound(17, 1, f, f);
+
+	// unpaved road sound
+	if (car->surface_type == 0) {
+		f = 0;
+	}
+	sfx_play_sound(11, 1, 0.25f, f);
 
 	// tire screeching
 	if (car->time_off_ground > 0 || car->is_crashed) {
@@ -1422,7 +1418,6 @@ void tnfs_init_sim() {
 void tnfs_update() {
 	int i;
 	tnfs_car_data *car;
-	int reset;
 
 	iSimTimeClock++;
 
@@ -1465,22 +1460,6 @@ void tnfs_update() {
 			}
 		} else {
 			tnfs_collision_main(car);
-		}
-
-		// tweak to allow circuit track lap
-		reset = 0;
-		if ((car->track_slice > g_road_node_count - 2) && (car->car_road_speed > 0x1000)) {
-			car->track_slice = 0;
-			car->track_slice_lap = 0;
-			reset = 1;
-		} else if ((car->track_slice == 0) && (car->car_road_speed < -0x1000)) {
-			car->track_slice = car->track_slice_lap = g_road_node_count - 2;
-			reset = 1;
-		}
-		if (reset //
-			&& ((abs(car->position.x - track_data[car->track_slice].pos.x) > 0x1000000)
-			|| (abs(car->position.z - track_data[car->track_slice].pos.z) > 0x1000000))) {
-			tnfs_reset_car(car);
 		}
 
 		tnfs_car_update_center_line(car);
