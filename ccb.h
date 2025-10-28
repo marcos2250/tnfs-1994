@@ -64,6 +64,8 @@ typedef struct ccb_chunk {
 int ccb_parse_header(ccb_chunk *ccb);
 int shpm_parse_header(shpm_image * shape);
 void ccb_draw_to_buffer(byte * output, int left, int top);
+int bswap16(short in);
+int bswap32(int in);
 
 image_data * ccb_image_convert(ccb_chunk *ccb);
 image_data * shpm_image_convert(shpm_image * shpm, shpm_image * optional_plut);

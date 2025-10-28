@@ -1210,6 +1210,7 @@ int tnfs_car_shadow_update(tnfs_car_data *car, int param_2) {
 	//tnfs_vec3 local_5c;
 	//tnfs_vec3 local_50;
 	//tnfs_vec3 iStack_20;
+	int i;
 
 	/*
 	local_5c.x = (car->position).x - camera.position.x;
@@ -1266,7 +1267,7 @@ int tnfs_car_shadow_update(tnfs_car_data *car, int param_2) {
 		g_shadow_points[0].z = -iVar5 + iVar9;
 
 		//iVar7 = 0;
-		for (int i = 0; i < 4; i++) {
+		for (i = 0; i < 4; i++) {
 			/*
 			math_matrix_0009d744(&g_shadow_points[i], &g_shadow_matrix, &tStack_68);
 			tStack_68.x = tStack_68.x + local_50.x;
@@ -1291,7 +1292,8 @@ int tnfs_car_shadow_update(tnfs_car_data *car, int param_2) {
 }
 
 void tnfs_smoke_update() {
-	for (int i = 0; i < SMOKE_PUFFS; i++) {
+	int i;
+	for (i = 0; i < SMOKE_PUFFS; i++) {
 		g_smoke[i].texId = i & 3;
 		if (g_smoke[i].time < 0) {
 			if (is_drifting && g_smoke_delay <= 0) {
@@ -1307,7 +1309,6 @@ void tnfs_smoke_update() {
 			g_smoke_delay--;
 		} else {
 			g_smoke[i].time -= 10;
-			g_smoke[i].position.y += 0x100;
 		}
 	}
 }
@@ -1317,16 +1318,16 @@ void tnfs_smoke_update() {
  * setup everything
  */
 void tnfs_init_sim() {
+	int i;
+	char trkfile[80];
+
 	iSimTimeClock = 200;
 	cheat_crashing_cars = 0;
 	g_game_settings = 0;
 	sound_flag = 0;
-	int i;
-
 	g_race_status = 0;
 
 	//init track
-	char trkfile[80];
 	sprintf(trkfile, "assets/DriveData/tracks/%s%d.trk", g_track_files[g_track_sel], g_track_segment + 1);
 	tnfs_init_track(trkfile);
 

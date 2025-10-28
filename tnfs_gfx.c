@@ -134,8 +134,8 @@ void gfx_draw_cel(char * file) {
 
 void gfx_drawshape_94f4() {
 	short top, left;
-	left = __builtin_bswap16(g_shape->left_le);
-	top = __builtin_bswap16(g_shape->top_le);
+	left = bswap16(g_shape->left_le);
+	top = bswap16(g_shape->top_le);
 	gfx_draw_shpm(g_shape, left, top);
 }
 
@@ -146,8 +146,8 @@ void gfx_drawshape_94f4_at(int left, int top) {
 
 void gfx_drawshape_950c() {
 	short top, left;
-	left = __builtin_bswap16(g_shape->left_le);
-	top = __builtin_bswap16(g_shape->top_le);
+	left = bswap16(g_shape->left_le);
+	top = bswap16(g_shape->top_le);
 	gfx_draw_shpm(g_shape, left, top);
 }
 
@@ -244,14 +244,28 @@ void gfx_draw_text_9500(char *text, int x, int y) {
 
 /*** SIM MODE ***/
 
+// clear texture buffers
+void gfx_clear_buffers() {
+	int i = 1000;
+	unsigned int texId = 0;
+	glBindTexture(GL_TEXTURE_2D, 0);
+	while (i--) {
+		if (glIsTexture(i)) {
+			texId = i;
+			glDeleteTextures(1, &texId);
+		}
+	}
+	glFlush();
+}
+
 int gfx_store_texture(image_data * image) {
 	unsigned int texId = 0;
 	glGenTextures(1, &texId);
 	glBindTexture(GL_TEXTURE_2D, texId);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, image->width, image->height, 0, GL_RGBA, GL_UNSIGNED_BYTE, image->rgba);
 	return texId;
 }
@@ -325,11 +339,14 @@ int gfx_store_ccb(ccb_chunk *ccb, byte alpha) {
 
 void gfx_drawSmoke() {
 	float w;
+	int i;
+
 	tnfs_smoke_puff * smoke;
 	glEnable(GL_BLEND);
-	glBlendEquation(GL_FUNC_ADD);
+	//glBlendEquation(GL_FUNC_ADD);
 	glBlendFunc(GL_ONE, GL_ONE);
-	for (int i = 0; i < SMOKE_PUFFS; i++) {
+
+	for (i = 0; i < SMOKE_PUFFS; i++) {
 		smoke = &g_smoke[i];
 		if (smoke->time <= 0) continue;
 		glMatrixMode(GL_MODELVIEW);
@@ -350,7 +367,7 @@ void gfx_drawSmoke() {
 		glColor4f(1.0f, 1.0f, 1.0f, 0.1f);
 		glDisable(GL_DEPTH_TEST);
 		glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-		glActiveTexture(GL_TEXTURE0);
+
 		w = 3 - (w * 2);
 		glBindTexture(GL_TEXTURE_2D, g_smoke_texPkt[smoke->texId]);
 		glBegin(GL_TRIANGLE_STRIP);
@@ -373,13 +390,14 @@ void gfx_drawSmoke() {
 void gfx_drawShadows() {
 	tnfs_car_data * car;
 	float h, w, l;
+	int i;
 
 	glEnable(GL_BLEND);
 	glBindTexture(GL_TEXTURE_2D, 0);
 	glColor4f(0.0f, 0.0f, 0.0, 0.3f);
 	glPolygonMode(GL_FRONT, GL_FILL);
 
-	for (int i = 0; i < 8; i++) {
+	for (i = 0; i < 8; i++) {
 		car = &g_car_array[i];
 		if ((car->field_4e9 & 4) == 0) {
 			continue;
@@ -506,6 +524,7 @@ void gfx_drawVehicle(tnfs_car_data * car) {
 	tnfs_carmodel3d * carModel;
 	tnfs_polygon * poly;
 	int textureId;
+	int i;
 
 	// TNFS uses LHS, convert to OpenGL's RHS
 	glMatrixMode(GL_MODELVIEW);
@@ -541,8 +560,8 @@ void gfx_drawVehicle(tnfs_car_data * car) {
 	glColor3f(1.0f, 1.0f, 1.0);
 	glEnable(GL_DEPTH_TEST);
 	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-	glActiveTexture(GL_TEXTURE0);
-	for (int i = 0; i < carModel->model.numPolys; i++) {
+
+	for (i = 0; i < carModel->model.numPolys; i++) {
 		poly = &carModel->model.mesh[i];
 		textureId = poly->textureId;
 		if (car->car_id == 0) {
@@ -611,7 +630,6 @@ void gfx_drawHorizon() {
 	glColor3f(1.0f, 1.0f, 1.0);
 	glDisable(GL_DEPTH_TEST);
 	glPolygonMode(GL_FRONT, GL_FILL);
-	glActiveTexture(GL_TEXTURE0);
 
 	layer = 2;
 	while (layer--) {
@@ -675,7 +693,6 @@ void gfx_drawSimpleObject(tnfs_scenery_object * object) {
 	glColor3f(1.0f, 1.0f, 1.0);
 	glEnable(GL_DEPTH_TEST);
 	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-	glActiveTexture(GL_TEXTURE0);
 
 	h = model->height;
 	w = model->width;
@@ -713,6 +730,7 @@ void gfx_drawSimpleObject(tnfs_scenery_object * object) {
 void gfx_drawObject(tnfs_scenery_object * object) {
 	tnfs_polygon * poly;
 	tnfs_object3d * model = &g_scenery_3d_objects[0];
+	int i;
 
 	glMatrixMode(GL_MODELVIEW);
 	glLoadIdentity();
@@ -732,8 +750,8 @@ void gfx_drawObject(tnfs_scenery_object * object) {
 	glColor3f(1.0f, 1.0f, 1.0);
 	glEnable(GL_DEPTH_TEST);
 	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-	glActiveTexture(GL_TEXTURE0);
-	for (int i = 0; i < model->numPolys; i++) {
+
+	for (i = 0; i < model->numPolys; i++) {
 		poly = &model->mesh[i];
 		glBindTexture(GL_TEXTURE_2D, poly->textureId);
 		glBegin(GL_TRIANGLES);
@@ -753,6 +771,7 @@ void gfx_drawRoad() {
 	int p1, p2;
 	int chunk, strip, slice, texture;
 	int count;
+	int i;
 
 	glMatrixMode(GL_MODELVIEW);
 	glLoadIdentity();
@@ -767,7 +786,6 @@ void gfx_drawRoad() {
 
 	glColor3f(1.0f, 1.0f, 1.0);
 	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-	glActiveTexture(GL_TEXTURE0);
 
 	// terrain
 	chunk = (camera.track_slice >> 2) + 19;
@@ -856,7 +874,7 @@ void gfx_drawRoad() {
 	if (g_track_sel == 3) return;
 
 	//objects
-	for (int i = 0; i < 1000; i++) {
+	for (i = 0; i < 1000; i++) {
 		slice = g_scenery_object[i].track_slice;
 		x = slice - camera.track_slice;
 		if (x < -1 || x > 80) continue;
@@ -898,7 +916,6 @@ void gfx_drawTach() {
 	glLoadIdentity();
 	glOrtho(0.0, SCREEN_WIDTH, SCREEN_HEIGHT, 0.0, -1.0, 10.0);
 	glPolygonMode(GL_FRONT, GL_FILL);
-	glActiveTexture(GL_TEXTURE0);
 	glMatrixMode(GL_MODELVIEW);
 	glLoadIdentity();
 
@@ -968,6 +985,8 @@ void gfx_drawTach() {
 }
 
 void gfx_render_scene() {
+	int i;
+
 	cam_orientation.x = ((float) camera.orientation.x) * 0.0000214576733981; //(360/0xFFFFFF)
 	cam_orientation.y = ((float) camera.orientation.y) * 0.0000214576733981; //(360/0xFFFFFF)
 	cam_orientation.z = -((float) camera.orientation.z) * 0.0000214576733981; //(360/0xFFFFFF)
@@ -983,7 +1002,7 @@ void gfx_render_scene() {
 	gfx_drawShadows();
 
 	glEnable(GL_DEPTH_TEST);
-	for (int i = 0; i < g_total_cars_in_scene; i++) {
+	for (i = 0; i < g_total_cars_in_scene; i++) {
 		if ((g_car_ptr_array[i]->field_4e9 & 4) == 0) {
 			continue; //disabled car
 		}

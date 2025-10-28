@@ -136,12 +136,13 @@ int tnfs_ui_credits(int time, int crew) {
 	ccb_chunk *puVar10;
 	char acStack_8c[80];
 	int scroll;
+	int i;
 
 	puVar2 = (ccb_chunk*) gfx_openfile_96ec("frontend/display/credits/bgnd.cel", 0);
 	//puVar3 = (ccb_chunk*) gfx_openfile_96ec("frontend/display/credits/stamp.cel", 0);
 	puVar4 = (ccb_chunk*) gfx_openfile_96ec("frontend/display/credits/group.cel", 0);
 
-	for (int i = 0; i < 3; i++) {
+	for (i = 0; i < 3; i++) {
 		sprintf(acStack_8c, "frontend/display/credits/%d.cel", i + 1);
 		local_3c[i] = (ccb_chunk*) gfx_openfile_96ec(acStack_8c, 0);
 	}
@@ -176,6 +177,7 @@ int tnfs_ui_wall(int param_1) {
 	int iVar5;
 	char acStack_78[80];
 	struct tnfs_game_stats *stats;
+	int i;
 
 	//if ((int)&stack0xffffffd8 < unaff_r10) {
 	//  param_1 = FUN_00000148();
@@ -191,7 +193,7 @@ int tnfs_ui_wall(int param_1) {
 	gfx_readshape_9444(data, "bgnd");
 	gfx_drawshape_950c(); //(char)pbVar2,(char)((uint)*(undefined4 *)(pbVar2 + 0xc) >> 0x10),(char)*(undefined4 *)(pbVar2 + 0xc));
 
-	for (int i = 0; i < 10; i++) {
+	for (i = 0; i < 10; i++) {
 		stats = &g_game_stats[i];
 		if (stats->score == 0)
 			break;
@@ -496,6 +498,7 @@ int tnfs_ui_route(int param_1,int param_2,int param_3,int param_4) {
 	char auStack_84[12];
 	char acStack_78[80];
 	byte *iVar4_10 = 0; 
+	int i;
 
 	//if ((int)&stack0xffffffd8 < unaff_r10) {
 	//  param_1 = FUN_00000148();
@@ -524,7 +527,7 @@ int tnfs_ui_route(int param_1,int param_2,int param_3,int param_4) {
 	FUN_0000b45c(g_track_stats[param_1].max_speed, acStack_78);
 	gfx_draw_text_9500(acStack_78,0x87,0x8d);
 	
-  for (int i = 0; i < 3; i++) {
+  for (i = 0; i < 3; i++) {
     stats = &g_track_stats[i];
 
     FUN_0000b344(stats->time, auStack_84);

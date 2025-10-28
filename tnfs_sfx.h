@@ -8,8 +8,8 @@
 #include <stdint.h>
 
 typedef struct sfx_assets {
-    int length;
-    int playback_pos;
+	float length;
+    float playback_pos;
     float volume;
     float pitch;
     char loop;

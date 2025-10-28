@@ -24,11 +24,13 @@ int isBlockLabel(char *label, byte *data) {
 
 int readbits(unsigned char * data, int * idx_, byte size) {
     int val = 0;
+    size_t i;
+	int j;
     if (size == 0) {
     	return 0;
     }
-    size_t i = *idx_;
-    for (int j = 0; j < size; j++) {
+    i = *idx_;
+    for (j = 0; j < size; j++) {
         val = ((val << 1) | ((data[i >> 3] >> (7 - (i & 7))) & 1));
         i++;
     }
@@ -41,6 +43,19 @@ int readInt32(unsigned char *buffer, int pos) {
 		| (int)(buffer[pos + 1]) << 16 //
 		| (int)(buffer[pos + 2]) << 8 //
 		| buffer[pos + 3];
+}
+
+int bswap16(short in) {
+	//return __builtin_bswap16(in);
+	return ((in & 0xFF) << 8) | ((in & 0xFF00) >> 8);
+}
+
+int bswap32(int in) {
+	//return __builtin_bswap32(in);
+	return ((in & 0xFF) << 24) //
+			| ((in & 0xFF00) << 8) //
+			| ((in & 0xFF0000) >> 8) //
+			| (in >> 24);
 }
 
 int getPaletteColor(int pixel) {
@@ -115,8 +130,8 @@ int ccb_parse_header(ccb_chunk *ccb) {
 		return 0;
 	}
 
-	width = __builtin_bswap16(ccb->ccb_Width);
-	height = __builtin_bswap16(ccb->ccb_Height);
+	width = bswap16(ccb->ccb_Width);
+	height = bswap16(ccb->ccb_Height);
 
 	if (width < 1 || width > 2048 || height < 1 || height > 2048) {
 		printf("ccb_parse_header: Invalid CCB data!\n");
@@ -150,7 +165,7 @@ int ccb_parse_header(ccb_chunk *ccb) {
 	if (width == 4 && height == 4) isBgnd = 0; //FIXME transparent texture
 
 	cel = (byte*) ccb;
-	cel += __builtin_bswap32(ccb->chunk_size);
+	cel += bswap32(ccb->chunk_size);
 
 	limit = 4;
 	while (limit--) {
@@ -185,8 +200,8 @@ int shpm_parse_header(shpm_image * shape) {
 	bpp = 0;
 	isShaded = 0;
 
-	width = __builtin_bswap16(shape->width_le);
-	height = __builtin_bswap16(shape->height_le);
+	width = bswap16(shape->width_le);
+	height = bswap16(shape->height_le);
 
 	if (width < 1 || width > 2048 || height < 1 || height > 2048) {
 		printf("shpm_parse_header: Invalid SHPM image!\n");

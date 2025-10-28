@@ -496,6 +496,9 @@ void tnfs_tire_forces(tnfs_car_data *car, //
 	int force_lat_local_0;
 	int force_lon_local_0;
 	int aux;
+	int iVar4;
+	int iVar5;
+	int iVar6;
 
 	skid_amount = 0;
 	if (car->time_off_ground > 0) {
@@ -662,7 +665,6 @@ void tnfs_tire_forces(tnfs_car_data *car, //
 					}
 				}
 
-				int iVar4, iVar5, iVar6;
 				iVar5 = abs(force_lat_local);
 				iVar4 = grip_factor * force_lon_local;
 				iVar4 = abs(fix8(iVar4));

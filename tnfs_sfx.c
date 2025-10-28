@@ -45,6 +45,7 @@ int16_t * sfx_resample_aiff(byte * input, int inLength, int * outLength) {
 	int16_t sample;
     int16_t * out;
     int16_t * out_buffer;
+    int i;
 
     *outLength = inLength * 2; // convert mono to stereo
 
@@ -53,7 +54,7 @@ int16_t * sfx_resample_aiff(byte * input, int inLength, int * outLength) {
 		return 0;
 
 	out = out_buffer;
-	for (int i = 0; i < inLength; i += 2) {
+	for (i = 0; i < inLength; i += 2) {
 		sample = (input[i] << 8) | input[i + 1];
 		*out++ = sample;
 		*out++ = sample;
@@ -106,11 +107,12 @@ int16_t * sfx_read_aiff(byte * aiff, int * outLength) {
 	int length = 0;
 	char is_aifc = 0;
 	byte * data = aiff;
+	int i;
 
 	length = aiff[7] | ( aiff[6] << 8 ) | ( aiff[5] << 16 ) | ( aiff[4] << 24 );
 	*outLength = length;
 
-	for (int i = 0; i < length; i++) {
+	for (i = 0; i < length; i++) {
 		if (data[0] == 'A' && data[1] == 'I' && data[2] == 'F' && data[3] == 'C') {
 			is_aifc = 1;
 		}
@@ -152,7 +154,7 @@ void sfx_load_audio_file(char * filename) {
 		return;
 
 	g_sounds[g_sound_counter].data = out_buffer;
-	g_sounds[g_sound_counter].length = out_length;
+	g_sounds[g_sound_counter].length = (float) out_length / 2;
 	g_sound_counter++;
 
 	free(file);
@@ -164,19 +166,20 @@ void sfx_load_audio_bank(char * filename) {
 	int wpath[3];
 	int out_length = 0;
 	unsigned char * aiff;
+	int i;
 
 	unsigned char * filedata = openFile(filename, &fileSize);
 	if (filedata == 0)
 		return;
 
 	numEntries = filedata[7];
-	for (int i = 0; i < numEntries; i++) {
+	for (i = 0; i < numEntries; i++) {
 		wpath[0] = i;
 		aiff = read_wwww(filedata, wpath, 1);
 		g_sounds[g_sound_counter].data = sfx_read_aiff(aiff, &out_length);
 		if (g_sounds[g_sound_counter].data == 0)
 			continue;
-		g_sounds[g_sound_counter].length = out_length;
+		g_sounds[g_sound_counter].length = (float) out_length / 2;
 		g_sound_counter++;
 	}
 }
@@ -196,7 +199,7 @@ void sfx_load_file_into_channel(char * filename, int channelId) {
 
 	g_sounds[channelId].data = sfx_read_aiff(file, &out_length);
 	free(file);
-	g_sounds[channelId].length = out_length;
+	g_sounds[channelId].length = (float) out_length / 2;
 	g_sounds[channelId].loop = 1;
 	g_sounds[channelId].playback_pos = 0;
 	g_sounds[channelId].volume = 1;
@@ -209,10 +212,9 @@ void sfx_load_file_into_channel(char * filename, int channelId) {
 void sfx_init_frontend() {
 	sfx_clear_buffers();
 
+	sfx_load_audio_file(g_sfx_music_files[music_rnd]);
 	music_rnd++;
 	if (music_rnd > 3) music_rnd = 0;
-
-	sfx_load_audio_file(g_sfx_music_files[music_rnd]);
 
 	sfx_load_audio_file("DriveData/aiff/Select.22K.mw.aiff");
 	g_sounds[1].pitch = 0.5f;
@@ -223,6 +225,8 @@ void sfx_init_frontend() {
 
 void sfx_init_sim(int carId) {
 	char filename[80];
+	int i;
+
 	sfx_clear_buffers();
 
 	//car sounds: 0-1 low revs; 2-3 high revs; 4 shifter
@@ -251,7 +255,7 @@ void sfx_init_sim(int carId) {
 	*/
 
 	// most sounds are 22Khz
-	for (int i = 0; i < g_sound_counter; i++) {
+	for (i = 0; i < g_sound_counter; i++) {
 		g_sounds[i].pitch = 0.5f;
 	}
 }
@@ -261,23 +265,14 @@ void sfx_init_sim(int carId) {
  */
 void sfx_mix_stream(int16_t *outStream, int outLen, sfx_assets * sound) {
 
-	int *inStreamPos = &sound->playback_pos;
-
 	int value = 0;
-	int tS = *inStreamPos;
-	int ti = 0;
-	float tf = 0;
-
 	int16_t *in = sound->data;
-	in += *inStreamPos / 2;
-
 	int16_t *out = (int16_t*) outStream;
 	outLen /= 2;
 
-	for (int i = 0; i < outLen; i++) {
+	while (outLen--) {
 		// stream end and looping
-		if (*inStreamPos >= sound->length) {
-			*inStreamPos = tS = tf = ti = 0;
+		if (sound->playback_pos >= sound->length) {
 			sound->playback_pos = 0;
 			if (sound->loop) {
 				in = (int16_t*) sound->data;
@@ -287,15 +282,13 @@ void sfx_mix_stream(int16_t *outStream, int outLen, sfx_assets * sound) {
 			}
 		}
 
-		// pitch //FIXME not interpolated
+		value = in[(int) sound->playback_pos];
+
+		// pitch
 		if (sound->pitch != 1.0f) {
-			value = in[ti];
-			tf += sound->pitch;
-			ti = (int)tf;
-			*inStreamPos = ti * 2 + tS;
+			sound->playback_pos += sound->pitch;
 		} else {
-			value = in[i];
-			*inStreamPos += 2;
+			sound->playback_pos += 1;
 		}
 
 		// volume
@@ -304,10 +297,11 @@ void sfx_mix_stream(int16_t *outStream, int outLen, sfx_assets * sound) {
 		}
 
 		// sound output mix (just add and clamp value)
-		value += out[i];
+		value += *out;
 		if (value > 0x7FFF) value = 0x7FFF;
 		if (value < -0x7FFF) value = -0x7FFF;
-		out[i] = value;
+		*out = value;
+		out++;
 	}
 }
 
@@ -353,8 +347,10 @@ void sfx_stop_sound(int id) {
  */
 void sfx_sdl_audio_callback(void* userdata, int16_t* stream, int len) {
 	sfx_assets * channel;
+	int i;
+
 	memset(stream, 0, len);
-	for (int i = 0; i < g_sound_counter; i++) {
+	for (i = 0; i < g_sound_counter; i++) {
 		channel = &g_sounds[i];
 		if (channel->play && channel->volume > 0) {
 			sfx_mix_stream(stream, len, channel);

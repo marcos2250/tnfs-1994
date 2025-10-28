@@ -1,4 +1,7 @@
+#define SDL_MAIN_HANDLED
+
 #include <stdio.h>
+#include <stdlib.h>
 #include <SDL.h>
 #include <SDL_opengl.h>
 #include <SDL_audio.h>
@@ -139,6 +142,7 @@ void handleKeys() {
 
 void sys_sdl_exit() {
 	clearFileBuffer();
+	gfx_clear_buffers();
 	sfx_clear_buffers();
 
 	SDL_CloseAudioDevice(audioDevice);
@@ -182,49 +186,10 @@ void sys_sdl_loop_frontend() {
 	}
 }
 
-void sys_sdl_loop() {
-	quit = 0;
-	while (SDL_PollEvent(&event)) {
-		if (event.type == SDL_QUIT) {
-			quit = 1;
-			sys_sdl_exit();
-		}
-		handleKeys();
-	}
-
-	if (g_police_ticket_time) {
-		g_police_ticket_time--;
-		tnfs_ui_cop_ticket(g_police_speeding_ticket);
-		if (g_police_ticket_time == 0) {
-			//just reset player car
-			tnfs_reset_car(player_car_ptr);
-		}
-	}
-
-	if (isFrontEnd || g_police_ticket_time) {
-		renderGlFrontEnd();
-	} else {
-		tnfs_update();
-		gfx_update();
-	}
-
-	SDL_Delay(30);
-}
-
 void tnfs_race_enter() {
 
-	// clear texture buffers
-	int i = 1000;
-	unsigned int texId = 0;
-	glBindTexture(GL_TEXTURE_2D, 0);
-	while (i--) {
-		if (glIsTexture(i)) {
-			texId = i;
-			glDeleteTextures(1, &texId);
-		}
-	}
-	glFlush();
-
+	gfx_clear_buffers();
+	sfx_clear_buffers();
 	tnfs_init_sim();
 	isFrontEnd = 0;
 	quit = 0;
@@ -232,28 +197,51 @@ void tnfs_race_enter() {
 	sfx_init_sim(g_player_car);
 	SDL_PauseAudioDevice(audioDevice, 0);
 
+	/* game main loop */
 	while(!quit) {
-		sys_sdl_loop();
+		while (SDL_PollEvent(&event)) {
+			if (event.type == SDL_QUIT) {
+				quit = 1;
+				sys_sdl_exit();
+			}
+			handleKeys();
+		}
 
 		if (player_car_ptr->field_4c9 > 150) {
 			if (player_car_ptr->track_slice < 0x10) {
 				quit = 1; // player give up
+			} else {
+				quit = 0; // player finish track
 			}
 			break;
 		}
+
+		if (g_police_ticket_time) {
+			g_police_ticket_time--;
+			tnfs_ui_cop_ticket(g_police_speeding_ticket);
+			renderGlFrontEnd();
+			if (g_police_ticket_time == 0) {
+				//just reset player car
+				tnfs_reset_car(player_car_ptr);
+			}
+		} else {
+			tnfs_update();
+			gfx_update();
+		}
+
+		SDL_Delay(30);
 	}
 
+	gfx_clear_buffers();
 	sfx_clear_buffers();
 	isFrontEnd = 1;
 }
 
 void gfx_static_screen(char * file, char * label) { 
-	int timer = 30;
 	gfx_clear();
 	gfx_draw_3sh(file, label);
-	while(timer--) {
-		sys_sdl_loop();
-	}
+	renderGlFrontEnd();
+	SDL_Delay(1000);
 }
 
 void toggle_s(int *current, int max, int inc) {
@@ -273,8 +261,8 @@ void toggle(int *current, int max, int inc) {
 }
 
 void tnfs_menu_pause() {
-	isFrontEnd = 1;
 	int option = 0;
+	isFrontEnd = 1;
 	SDL_PauseAudioDevice(audioDevice, 1);
 	while(1) {
 		switch (keys_getkey()) {
@@ -285,8 +273,8 @@ void tnfs_menu_pause() {
 			toggle(&option, 3, +1);
 			break;
 		case SDLK_RETURN:
-			SDL_PauseAudioDevice(audioDevice, 0);
 			if (option == 0) {
+				SDL_PauseAudioDevice(audioDevice, 0);
 				isFrontEnd = 0;
 				return;
 			}
@@ -329,7 +317,12 @@ void tnfs_menu_credits() {
 			break;
 		}
 		tnfs_ui_credits(time, crew);
-		sys_sdl_loop();
+
+		while (SDL_PollEvent(&event)) {
+			handleKeys();
+		}
+		renderGlFrontEnd();
+		SDL_Delay(30);
 	}
 }
 
@@ -562,22 +555,17 @@ void tnfs_menu_route() {
 }
 
 void tnfs_loading_screen() {
-	int timer;
 	int i;
-
-	SDL_PauseAudioDevice(audioDevice, 1);
-
 	for (i = 0; i < 3; i++) {
-		timer = 30;
 		tnfs_ui_loading_screen(i);
-		while (timer--) {
-			sys_sdl_loop();
-		}
+		renderGlFrontEnd();
+		SDL_Delay(1000);
 	}
 }
 
 void tnfs_menu_drive_start() {
 	quit = 0;
+	SDL_PauseAudioDevice(audioDevice, 1);
 
 	g_track_segment = 0;
 	tnfs_loading_screen();
@@ -606,12 +594,14 @@ void tnfs_menu_drive_start() {
 
 	sfx_init_frontend();
 	sfx_play_sound(0, 1, 1, 1);
+	SDL_PauseAudioDevice(audioDevice, 0);
 }
 
 void tnfs_menu_control() {
 	int option = 0;
 	sfx_init_frontend();
 	sfx_play_sound(0, 1, 1, 1);
+	SDL_PauseAudioDevice(audioDevice, 0);
 	while(1) {
 		switch (keys_getkey()) {
 		case SDLK_UP:
@@ -654,6 +644,8 @@ void tnfs_menu_control() {
 }
 
 void tnfs_init_config() {
+	int i;
+
     g_config.audio = 0;
     g_config.audio_mode = 0;
     g_config.abs = 1;
@@ -662,7 +654,7 @@ void tnfs_init_config() {
     g_config.opp_video = 1;
     g_config.control = 0;
 
-	for (int i = 0; i < 10; i++) {
+	for (i = 0; i < 10; i++) {
 		g_game_stats[i].id = i;
 		strcpy(g_game_stats[i].name, "Racer");
 		g_game_stats[i].car_id = (i * 3) & 4;
@@ -671,7 +663,7 @@ void tnfs_init_config() {
 		g_game_stats[i].skill = i & 2;
 	}
 
-	for (int i = 0; i < 4; i++) {
+	for (i = 0; i < 4; i++) {
 		g_track_stats[i].id = i;
 		strcpy(g_track_stats[i].name, "Racer");
 		g_track_stats[i].car_id = (i * 3) & 4;
@@ -726,6 +718,7 @@ void fileView_scan_file(int id) {
 	int pos = 0;
 	byte * obj = 0;
 	int numShapes = 0;
+	int j;
 
 	if (fileView_data != 0) {
 		free(fileView_data);
@@ -748,7 +741,7 @@ void fileView_scan_file(int id) {
 			numShapes = obj[11] + (obj[10] << 8);
 			obj += 0x10;
 
-			for (int j = 0; j < numShapes; ++j) {
+			for (j = 0; j < numShapes; ++j) {
 				objectIds[texCount] = obj[7] + (obj[6] << 8) + (obj[5] << 16) + (obj[4] << 24) + pos;
 				texCount++;
 				obj += 8;
@@ -859,6 +852,7 @@ void audioPlayer_main() {
 	int fileView_count = 17;
 	gfx_clear();
 	sfx_init_sim(0);
+	SDL_PauseAudioDevice(audioDevice, 0);
 	fileView_sfx_screen(id);
 
 	isFrontEnd = 1;
@@ -969,8 +963,6 @@ int main(int argc, char **argv) {
 
 	tnfs_init_config();
 
-	sfx_init_frontend();
-	SDL_PauseAudioDevice(audioDevice, 0);
 	initial_menu();
 
 	sys_sdl_exit();

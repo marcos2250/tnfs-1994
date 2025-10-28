@@ -20,10 +20,6 @@ byte * openFile(char * filename, int * fileSize);
 byte * openFileBuffer(char * filename, int * fileSize);
 void clearFileBuffer();
 
-int readbits(unsigned char * data, int * idx_, byte size);
-int readFixed32(unsigned char *buffer, int pos);
-int readSigned16(unsigned char *buffer, int pos);
-
 byte * read_wwww(byte *data, int path[], int depth);
 int locate_wwww(byte *data, byte *pointer, int depth, char *path_result);
 int read_tri_file(char * file);

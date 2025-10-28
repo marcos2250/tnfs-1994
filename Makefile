@@ -1,6 +1,12 @@
 CC=gcc
+
+ifeq ($(OS),Windows_NT)
+LIBS=-L"C:/Dev-Cpp/lib" -lSDL2 -lSDL2main -lm -lopengl32 -lglu32
+INCL=-I"C:/Dev-Cpp/include/SDL2"  
+else
 LIBS=-lSDL2 -lSDL2main -lm -lGL -lGLU
 INCL=-I/usr/include/SDL2
+endif
 
 OBJS= \
 	ccb.c \

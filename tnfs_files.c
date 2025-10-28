@@ -21,19 +21,14 @@ int readFixed32(unsigned char *buffer, int pos) {
 }
 
 int readSigned16(unsigned char *buffer, int pos) {
-	short v = (((short) buffer[pos]) << 8) | buffer[pos + 1];
-	if (v > 0x8000) {
-		v -= 0x8000;
-	}
-	return v;
+	return (signed short)(buffer[pos + 1]) << 8 | buffer[pos];
 }
 
 int readSigned8(unsigned char *buffer, int pos) {
-	short v = buffer[pos];
+	int v = buffer[pos];
 	if (v > 0x80) {
 		v -= 0x80;
 	}
-	printf("%d\n", v);
 	return v;
 }
 
@@ -90,7 +85,8 @@ int readTxtDecimal(FILE *ptr) {
 
 byte * read_wwww(byte *data, int path[], int depth) {
 	int offset = 0;
-	for (int i = 0; i < depth; i++) {
+	int i;
+	for (i = 0; i < depth; i++) {
 		if (data[0] != 'w' || data[1] != 'w' || data[2] != 'w' || data[3] != 'w') {
 			break;
 		}
@@ -202,7 +198,8 @@ byte * openFileBuffer(char * filename, int * fileSize) {
 }
 
 void clearFileBuffer() {
-	for (int i = 0; i < file_counter; i++) {
+	int i;
+	for (i = 0; i < file_counter; i++) {
 		if (g_file_assets[i].content) {
 			free(g_file_assets[i].content);
 		}
@@ -614,6 +611,7 @@ int read_tddyn_file(char *carname, tnfs_car_data *car) {
 int read_skill_file(int skill) {
 	FILE *ptr;
 	char file[80];
+	int i;
 
 	sprintf(file, "assets/DriveData/skills.%d", skill);
 	ptr = fopen(file,"r");
@@ -653,7 +651,7 @@ int read_skill_file(int skill) {
 	g_ai_skill_cfg.lane_slack[2] = readTxtDecimal(ptr);
 	g_ai_skill_cfg.lane_slack[3] = readTxtDecimal(ptr);
 
-	for (int i = 0; i < 20; i++) {
+	for (i = 0; i < 20; i++) {
 		g_ai_skill_cfg.opponent_glue_0[i] = readTxtDecimal(ptr);
 	}
 
@@ -777,6 +775,9 @@ int read_carmodel_file(char * carname, tnfs_carmodel3d * carmodel) {
 	char filename[80];
 	int size = 0;
 	int wpath[3];
+	int i;
+	int j;
+	tnfs_polygon * poly;
 
 	unsigned char * filedata;
 	unsigned char * ori3;
@@ -830,7 +831,7 @@ int read_carmodel_file(char * carname, tnfs_carmodel3d * carmodel) {
 	if (tex1) carmodel->wheelTexId[2] = gfx_store_texture(shpm_image_convert(tex1, 0));
 
 	// get fast spinning wheel texture
-	for (int i = 0; i < carmodel->model.numPolys; i++) {
+	for (i = 0; i < carmodel->model.numPolys; i++) {
 		if (carmodel->rt_rear == carmodel->model.mesh[i].polyId) {
 			carmodel->wheelTexId[3] = carmodel->model.mesh[i].textureId;
 			break;
@@ -848,11 +849,10 @@ int read_carmodel_file(char * carname, tnfs_carmodel3d * carmodel) {
 	}
 
 	// FIX: scale up F512TR model
-	tnfs_polygon * poly;
 	if (strcmp("F512TR", carname) == 0) {
-		for (int i = 0; i < carmodel->model.numPolys; i++) {
+		for (i = 0; i < carmodel->model.numPolys; i++) {
 			poly = &carmodel->model.mesh[i];
-			for (int j = 0; j < 3; j++) {
+			for (j = 0; j < 3; j++) {
 				poly->points[j * 3] *= 1.2f;
 				poly->points[j * 3 + 1] *= 1.15f;
 				poly->points[j * 3 + 2] *= 1.1f;

@@ -6,15 +6,9 @@
 #include <string.h>
 #include "tnfs_math.h"
 
-/*
- * fixed multiplication as used in PSX version
- * PC version -> assembly code in math.h
- */
-#ifndef __WATCOMC__
 int math_mul(int x, int y) {
 	return (((long long) x) * y + 0x8000) >> 16;
 }
-#endif
 
 int math_mul_floor(int x, int y) {
 	return math_mul(x >> 1, y >> 1) << 2;
@@ -208,7 +202,7 @@ void math_matrix_multiply(tnfs_vec9 *result, tnfs_vec9 *m2, tnfs_vec9 *m1) {
 int math_inverse_value(int v) {
 	if (v == 0)
 		return 0;
-	return 0x100000000 / v;
+	return (int)(0x100000000L / v);
 }
 
 /*

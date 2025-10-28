@@ -124,7 +124,7 @@ void tnfs_ai_load_car(tnfs_car_data *car, int newCarModelId) {
 	// gear ratios
 	for (j = 0; j < 6; j++) {
 		if (car->top_speed_per_gear[j] != 0) {
-			car->ai_gear_ratios[0] = 0x100000000 / car->top_speed_per_gear[j];
+			car->ai_gear_ratios[0] = (int)(0x100000000L / car->top_speed_per_gear[j]);
 		}
 	}
 
@@ -244,6 +244,7 @@ int carmodel = 9;
 void tnfs_ai_respawn_do(tnfs_car_data *car, int node, int side, int centerline, int flag) {
 	tnfs_vec9 mat_car_rotate;
 	int node_new = 0;
+	int i;
 
 	//FIXME added quirks
 	printf("Respawn car %d, node %d, direction %d, state=%x, f084=%d, f158=%x f4e9=%x\n", //
@@ -270,7 +271,7 @@ void tnfs_ai_respawn_do(tnfs_car_data *car, int node, int side, int centerline, 
 		return;
 	}
 	//don't respawn if there's someone else there already
-	for (int i = 0; i < g_total_cars_in_scene; i++) {
+	for (i = 0; i < g_total_cars_in_scene; i++) {
 		if (node == g_car_array[i].track_slice) {
 			return;
 		}
