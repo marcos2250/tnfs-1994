@@ -7,6 +7,7 @@
 
 #include "ccb.h"
 
+#define GL_CLAMP_TO_EDGE 0x812F
 #define byte unsigned char
 
 extern const int SCREEN_WIDTH;

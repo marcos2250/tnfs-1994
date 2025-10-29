@@ -110,7 +110,6 @@ int16_t * sfx_read_aiff(byte * aiff, int * outLength) {
 	int i;
 
 	length = aiff[7] | ( aiff[6] << 8 ) | ( aiff[5] << 16 ) | ( aiff[4] << 24 );
-	*outLength = length;
 
 	for (i = 0; i < length; i++) {
 		if (data[0] == 'A' && data[1] == 'I' && data[2] == 'F' && data[3] == 'C') {
@@ -285,11 +284,7 @@ void sfx_mix_stream(int16_t *outStream, int outLen, sfx_assets * sound) {
 		value = in[(int) sound->playback_pos];
 
 		// pitch
-		if (sound->pitch != 1.0f) {
-			sound->playback_pos += sound->pitch;
-		} else {
-			sound->playback_pos += 1;
-		}
+		sound->playback_pos += sound->pitch;
 
 		// volume
 		if (sound->volume < 1.0f) {

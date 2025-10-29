@@ -21,7 +21,7 @@ int readFixed32(unsigned char *buffer, int pos) {
 }
 
 int readSigned16(unsigned char *buffer, int pos) {
-	return (signed short)(buffer[pos + 1]) << 8 | buffer[pos];
+	return (signed short)(buffer[pos]) << 8 | buffer[pos + 1];
 }
 
 int readSigned8(unsigned char *buffer, int pos) {
