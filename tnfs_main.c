@@ -108,6 +108,9 @@ void handleKeys() {
 		case SDLK_F5:
 			tnfs_cheat_mode();
 			break;
+		case SDLK_F9:
+			tnfs_toggle_dash();
+			break;
 		default:
 			break;
 		}

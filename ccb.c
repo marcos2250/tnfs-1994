@@ -64,20 +64,13 @@ int getPaletteColor(int pixel) {
 	return plut[pixel + 1] | (plut[pixel] << 8);
 }
 
-void writepixels(byte * buffer, int *idx, int rgb, int shade) {
+void writepixel(byte * buffer, int *idx, int rgb, int shade) {
 	if (*idx > 307200 || *idx < 0) return;
 
 	//if (!isBgnd && ((rgb & 0x7FFF) == 0)) {
-	if ((isBgnd == 0 && rgb == 0) || rgb < 0) {
-		// transparent pixels
-		buffer[*idx] = 0;
-		*idx += 1;
-		buffer[*idx] = 0;
-		*idx += 1;
-		buffer[*idx] = 0;
-		*idx += 1;
-		buffer[*idx] = 0;
-		*idx += 1;
+	if (isBgnd == 0 && rgb == 0) {
+		// transparent pixel
+		*idx += 4;
 		return;
 	}
 
@@ -279,7 +272,7 @@ void ccb_decode_linear_image(byte * output, int posX, int posY) {
 			} else {
 				rgb = pixel;
 			}
-			writepixels(output, &outidx, rgb, shade);
+			writepixel(output, &outidx, rgb, shade);
 		}
 
 		// ???
@@ -355,20 +348,13 @@ void ccb_decode_packed_image(byte * output, int posX, int posY) {
 						} else {
 							rgb = pixel;
 						}
-						writepixels(output, &outidx, rgb, shade);
+						writepixel(output, &outidx, rgb, shade);
 					}
 					break;
 				case 2: //transparent
 					chunkSize = readbits(pdat, &bit, 6) + 1;
 					bx -= chunkSize;
-					while(chunkSize > 0) {
-						chunkSize--;
-						if (toBackbuffer) {
-							outidx+=4;
-						} else {
-							writepixels(output, &outidx, -1, 0);
-						}
-					}
+					outidx += chunkSize * 4;
 					break;
 				case 3: //packed
 					chunkSize = readbits(pdat, &bit, 6) + 1;
@@ -382,7 +368,7 @@ void ccb_decode_packed_image(byte * output, int posX, int posY) {
 					}
 					while(chunkSize > 0) {
 						chunkSize--;
-						writepixels(output, &outidx, rgb, shade);
+						writepixel(output, &outidx, rgb, shade);
 					}
 					break;
 			}

@@ -83,6 +83,8 @@ char * g_ai_tddyn[] = {
 		"Wagon", "crx", "Vandura", "BMW", "SunBird", "Jetta", "RODEO", "axxess", "Probe", "Jeep",
 		"lemans", "Pickup", "Sasco", "PRELUDE", "GMCTRUCK", "PROBE94", "CAR1", "CAR1" }; //"Inviso"?
 
+char * g_dash_files[] = { "TSUPRA", "LDIABLO", "P911", "CZR1", "F512TR", "DVIPER", "ANSX", "MRX7" };
+
 
 // car models
 struct tnfs_carmodel3d g_carmodels[32];
@@ -106,6 +108,11 @@ int g_scenery_objects = 0;
 
 // hud
 int g_hud_texPkt[15];
+
+// dash
+tnfs_dash_constants g_dash_constants;
+int g_dash_texPkt[10];
+char g_dash_enabled = 1;
 
 // smoke
 int g_smoke_texPkt[5];
@@ -835,6 +842,10 @@ void tnfs_cheat_mode() {
 	tnfs_reset_car(g_car_ptr_array[0]);
 }
 
+void tnfs_toggle_dash() {
+	g_dash_enabled = g_dash_enabled ? 0 : 1;
+}
+
 void tnfs_crash_car() {
 	int i;
 	for (i = 1; i < g_total_cars_in_scene; i++) {
@@ -1369,7 +1380,23 @@ void tnfs_init_sim() {
 	tnfs_init_car();
 
 	// create hud
-	read_hud_dash_file();
+	read_dash_constants(g_car_files[g_car_array[0].car_model_id]);
+	read_hud_dash_file(g_dash_files[g_car_array[0].car_model_id]);
+
+	// more dash constants
+	if (g_car_array[0].car_model_id == 3) { // CZR1
+		g_dash_constants.tacho_rotate_factor = 1.57f;
+		g_dash_constants.tacho_idle_angle = 4.71f;
+		g_dash_constants.tacho_needle_length = 65;
+	} else {
+		g_dash_constants.tacho_rotate_factor = 4.71f;
+		g_dash_constants.tacho_idle_angle = 3.92f;
+		g_dash_constants.tacho_needle_length = 35;
+	}
+	g_dash_constants.steer_pos_x = 160 * 2.5;
+	g_dash_constants.steer_pos_y = 220 * 2.5;
+	g_dash_constants.steer_size = 88 * 2.5;
+
 
 	// common art
 	read_sim_common_art_file();

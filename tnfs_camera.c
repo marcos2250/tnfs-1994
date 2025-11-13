@@ -420,6 +420,10 @@ void tnfs_camera_update(tnfs_camera *camera) {
 
 	//if (camera->id != 0)
 	//	camera->orientation.z += 0xFD8F8;
+
+	//FIX: for better in car dashboard view
+	if (camera->id == 0 && g_dash_enabled)
+		camera->orientation.x += 0x40000;
 }
 
 void tnfs_camera_auto_change(tnfs_car_data *car) {

@@ -21,7 +21,8 @@ int readFixed32(unsigned char *buffer, int pos) {
 }
 
 int readSigned16(unsigned char *buffer, int pos) {
-	return (signed short)(buffer[pos]) << 8 | buffer[pos + 1];
+	short v = (((short) buffer[pos]) << 8) | buffer[pos + 1];
+	return v;
 }
 
 int readSigned8(unsigned char *buffer, int pos) {
@@ -81,6 +82,16 @@ int readTxtDecimal(FILE *ptr) {
     }
   } while (iVar1 != 0);
   return 0;
+}
+
+void readTxtSkipLine(FILE *fp) {
+	char c;
+	int count = 100;
+	do {
+		count--;
+		if (count <= 0) break;
+		c = fgetc(fp);
+	} while (c != '\n' && c != '\r' && c != EOF);
 }
 
 byte * read_wwww(byte *data, int path[], int depth) {
@@ -823,29 +834,31 @@ int read_carmodel_file(char * carname, tnfs_carmodel3d * carmodel) {
 		carmodel->lt_rear = seekToken(ori3, "lt_r");
 		carmodel->rt_frnt = seekToken(ori3, "rt_f");
 		carmodel->lt_frnt = seekToken(ori3, "lt_f");
-	}
 
-	tex1 = gfx_locateshape(shpm, "whl1");
-	if (tex1) carmodel->wheelTexId[1] = gfx_store_texture(shpm_image_convert(tex1, 0));
-	tex1 = gfx_locateshape(shpm, "whl2");
-	if (tex1) carmodel->wheelTexId[2] = gfx_store_texture(shpm_image_convert(tex1, 0));
+		tex1 = gfx_locateshape(shpm, "whl1");
+		if (tex1) carmodel->wheelTexId[1] = gfx_store_texture(shpm_image_convert(tex1, 0));
+		tex1 = gfx_locateshape(shpm, "whl2");
+		if (tex1) carmodel->wheelTexId[2] = gfx_store_texture(shpm_image_convert(tex1, 0));
 
-	// get fast spinning wheel texture
-	for (i = 0; i < carmodel->model.numPolys; i++) {
-		if (carmodel->rt_rear == carmodel->model.mesh[i].polyId) {
-			carmodel->wheelTexId[3] = carmodel->model.mesh[i].textureId;
-			break;
+		// get fast spinning wheel texture
+		for (i = 0; i < carmodel->model.numPolys; i++) {
+			if (carmodel->rt_rear == carmodel->model.mesh[i].polyId) {
+				carmodel->wheelTexId[3] = carmodel->model.mesh[i].textureId;
+				break;
+			}
 		}
 	}
 
 	//cop siren lights
-	tex1 = gfx_locateshape(shpm, "lrl1");
-	if (tex1) {
-		carmodel->copSirenLights[0] = gfx_store_texture(shpm_image_convert(tex1, 0));
-		tex1 = gfx_locateshape(shpm, "lrr1");
-		carmodel->copSirenLights[1] = gfx_store_texture(shpm_image_convert(tex1, 0));
-		carmodel->lrl0 = seekToken(ori3, "lrl0");
-		carmodel->lrr0 = seekToken(ori3, "lrr0");
+	if (strcmp("CopMust", carname) == 0) {
+		tex1 = gfx_locateshape(shpm, "lrl1");
+		if (tex1) {
+			carmodel->copSirenLights[0] = gfx_store_texture(shpm_image_convert(tex1, 0));
+			tex1 = gfx_locateshape(shpm, "lrr1");
+			carmodel->copSirenLights[1] = gfx_store_texture(shpm_image_convert(tex1, 0));
+			carmodel->lrl0 = seekToken(ori3, "lrl0");
+			carmodel->lrr0 = seekToken(ori3, "lrr0");
+		}
 	}
 
 	// FIX: scale up F512TR model
@@ -965,40 +978,118 @@ int read_track_pkt_file(char * trackname) {
 }
 
 
-int read_hud_dash_file() {
+void read_dash_constants(char * carname) {
+	FILE *ptr;
 	int i;
-	int wpath[2] = { 3, 3 };
-	ccb_chunk * img;
+	char auxstr[120];
 
-	byte *dashfile = openFileBuffer("DriveData/CarData/ANSX.BigdashFam", &i);
+	g_dash_constants.num_panels = 0;
+
+	sprintf(auxstr, "assets/DriveData/CarData/%s.dashConstants", carname);
+	ptr = fopen(auxstr,"r");
+	if (!ptr) {
+		printf("File not found: %s\n", auxstr);
+		return;
+	}
+
+	readTxtSkipLine(ptr);
+	g_dash_constants.num_panels = readTxtInt(ptr);
+
+	for (i = 0; i < g_dash_constants.num_panels; i++) {
+		readTxtSkipLine(ptr);
+		g_dash_constants.position[i].x = readTxtInt(ptr);
+		readTxtSkipLine(ptr);
+		g_dash_constants.position[i].y = readTxtInt(ptr);
+		readTxtSkipLine(ptr);
+		readTxtSkipLine(ptr);
+		readTxtSkipLine(ptr);
+		readTxtSkipLine(ptr);
+		readTxtSkipLine(ptr);
+		readTxtSkipLine(ptr);
+		readTxtSkipLine(ptr);
+		readTxtSkipLine(ptr);
+	}
+
+	for (i = 0; i < 100; i++) {
+		readTxtLine((char*)&auxstr, 120, ptr);
+		if (strncmp((char*)&auxstr, "TACHO", 5) == 0) {
+			g_dash_constants.tacho_pos_x = (160 + readTxtInt(ptr)) * 2.5;
+			readTxtLine((char*)&auxstr, 120, ptr);
+			g_dash_constants.tacho_pos_y = (240 + readTxtInt(ptr)) * 2.5;
+			break;
+		}
+	}
+
+	fclose(ptr);
+}
+
+int read_hud_dash_file(char * carname) {
+	int i;
+	char filename[80];
+	int wpath[2] = { 3, 3 };
+	ccb_chunk * ccb;
+	image_data * image;
+	int aux;
+
+	sprintf((char*)&filename, "DriveData/CarData/%s.BigdashFam", carname);
+	byte *dashfile = openFileBuffer(filename, &i);
 	if (dashfile == 0) {
 		return 0;
 	}
 
 	// tacho
-	img = (ccb_chunk*) read_wwww(dashfile, wpath, 2);
-	g_hud_texPkt[13] = gfx_store_ccb(img, 0xAA);
+	ccb = (ccb_chunk*) read_wwww(dashfile, wpath, 2);
+	g_hud_texPkt[13] = gfx_store_ccb(ccb, 0xAA);
 	wpath[1] = 4;
-	img = (ccb_chunk*) read_wwww(dashfile, wpath, 2);
-	g_hud_texPkt[14] = gfx_store_ccb(img, 0x44);
+	ccb = (ccb_chunk*) read_wwww(dashfile, wpath, 2);
+	g_hud_texPkt[14] = gfx_store_ccb(ccb, 0x44);
 
 	// digits
 	for (i = 0; i < 10; i++) {
 		wpath[0] = 2;
 		wpath[1] = i;
-		img = (ccb_chunk*) read_wwww(dashfile, wpath, 2);
-		g_hud_texPkt[i] = gfx_store_ccb(img, 0xFF);
+		ccb = (ccb_chunk*) read_wwww(dashfile, wpath, 2);
+		g_hud_texPkt[i] = gfx_store_ccb(ccb, 0xFF);
 	}
 
 	// R, N
 	wpath[0] = 4;
 	wpath[1] = 10;
-	img = (ccb_chunk*) read_wwww(dashfile, wpath, 2);
-	g_hud_texPkt[10] = gfx_store_ccb(img, 0xFF);
+	ccb = (ccb_chunk*) read_wwww(dashfile, wpath, 2);
+	g_hud_texPkt[10] = gfx_store_ccb(ccb, 0xFF);
 	wpath[0] = 4;
 	wpath[1] = 11;
-	img = (ccb_chunk*) read_wwww(dashfile, wpath, 2);
-	g_hud_texPkt[11] = gfx_store_ccb(img, 0xFF);
+	ccb = (ccb_chunk*) read_wwww(dashfile, wpath, 2);
+	g_hud_texPkt[11] = gfx_store_ccb(ccb, 0xFF);
+
+	// dash
+	if (g_dash_constants.num_panels == 0) {
+		return 1;
+	}
+	aux = 320*240*4;
+	image = (image_data *) malloc(aux + 32);
+	memset(image->rgba, 0, aux);
+	image->size = aux;
+	image->width = 320;
+	image->height = 240;
+
+	for (i = 0; i < g_dash_constants.num_panels; i++) {
+		wpath[0] = 1;
+		wpath[1] = i;
+		ccb = (ccb_chunk*) read_wwww(dashfile, wpath, 2);
+		ccb_parse_header(ccb);
+		ccb_draw_to_buffer(image->rgba,
+				160 + g_dash_constants.position[i].x,
+				240 + g_dash_constants.position[i].y);
+	}
+	g_dash_texPkt[0] = gfx_store_texture(image);
+	free(image);
+
+	//steering wheel
+	wpath[0] = 1;
+	wpath[1] = g_dash_constants.num_panels + 2;
+	ccb = (ccb_chunk*) read_wwww(dashfile, wpath, 2);
+	g_dash_texPkt[1] = gfx_store_ccb(ccb, 0xFF);
 
 	return 1;
 }

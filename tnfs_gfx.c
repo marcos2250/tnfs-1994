@@ -399,6 +399,9 @@ void gfx_drawShadows() {
 
 	for (i = 0; i < 8; i++) {
 		car = &g_car_array[i];
+		if (i == 0 && camera.id == 0) {
+			continue;
+		}
 		if ((car->field_4e9 & 4) == 0) {
 			continue;
 		}
@@ -908,7 +911,7 @@ void gfx_drawHudDigit(int x, int y, int n) {
 	gfx_drawSprite(x, y, x2, y2, g_hud_texPkt[n]);
 }
 
-void gfx_drawTach() {
+void gfx_draw_hud() {
 	float c,s,r;
 	int speed;
 
@@ -984,6 +987,59 @@ void gfx_drawTach() {
 	glEnd();
 }
 
+void gfx_draw_dashboard() {
+	float c,s,r;
+
+	if (g_dash_constants.num_panels == 0) {
+		return;
+	}
+
+	glMatrixMode(GL_PROJECTION);
+	glLoadIdentity();
+	glOrtho(0.0, SCREEN_WIDTH, SCREEN_HEIGHT, 0.0, -1.0, 10.0);
+	glPolygonMode(GL_FRONT, GL_FILL);
+	glMatrixMode(GL_MODELVIEW);
+	glLoadIdentity();
+
+	// dash
+	gfx_drawSprite(0, 600, 800, 0, g_dash_texPkt[0]);
+
+	// RPM needle
+	glBindTexture(GL_TEXTURE_2D, 0);
+	r = ((float) g_car_array[0].rpm_engine / (float) g_car_array[0].rpm_redline)
+			* g_dash_constants.tacho_rotate_factor + g_dash_constants.tacho_idle_angle;
+	c = -cosf(r);
+	s = sinf(r);
+	glMatrixMode(GL_MODELVIEW);
+	matrix[0] = c; matrix[1] = -s; matrix[2] = 0; matrix[3] = 0;
+	matrix[4] = s; matrix[5] = c; matrix[6] = 0; matrix[7] = 0;
+	matrix[8] = 0; matrix[9] = 0; matrix[10] = 0; matrix[11] = 0;
+	matrix[12] = g_dash_constants.tacho_pos_x; matrix[13] = g_dash_constants.tacho_pos_y; matrix[14] = 0; matrix[15] = 1;
+	glLoadMatrixf(matrix);
+
+	glColor3f(0.9f, 0.3f, 0.1f);
+	glBegin(GL_TRIANGLE_STRIP);
+	glVertex3f(-1, 0, 0);
+	glVertex3f(+1, 0, 0);
+	glVertex3f(-1, g_dash_constants.tacho_needle_length, 0);
+	glVertex3f(+1, g_dash_constants.tacho_needle_length, 0);
+	glEnd();
+
+	//steering wheel
+	glColor3f(1.0f, 1.0f, 1.0);
+	r = ((float) g_car_array[0].steer_angle) / 0x280000;
+	c = -cosf(r);
+	s = sinf(r);
+	glMatrixMode(GL_MODELVIEW);
+	matrix[0] = c; matrix[1] = -s; matrix[2] = 0; matrix[3] = 0;
+	matrix[4] = s; matrix[5] = c; matrix[6] = 0; matrix[7] = 0;
+	matrix[8] = 0; matrix[9] = 0; matrix[10] = 0; matrix[11] = 0;
+	matrix[12] = g_dash_constants.steer_pos_x; matrix[13] = g_dash_constants.steer_pos_y; matrix[14] = 0; matrix[15] = 1;
+	glLoadMatrixf(matrix);
+	gfx_drawSprite(-g_dash_constants.steer_size, g_dash_constants.steer_size, g_dash_constants.steer_size, -g_dash_constants.steer_size, g_dash_texPkt[1]);
+	glBindTexture(GL_TEXTURE_2D, 0);
+}
+
 void gfx_render_scene() {
 	int i;
 
@@ -1015,7 +1071,11 @@ void gfx_render_scene() {
 	gfx_drawSmoke();
 
 	glDisable(GL_DEPTH_TEST);
-	gfx_drawTach();
+	if (camera.id == 0 && g_dash_enabled) {
+		gfx_draw_dashboard();
+	} else {
+		gfx_draw_hud();
+	}
 
 }
 

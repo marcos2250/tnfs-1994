@@ -690,6 +690,20 @@ typedef struct tnfs_smoke_puff {
 	float time;
 } tnfs_smoke_puff;
 
+typedef struct tnfs_dash_constants {
+	int num_panels; // Total number of Panels
+	tnfs_vec3 position[11]; // top left corner x/y relative to center
+	float tacho_pos_x;
+	float tacho_pos_y;
+	float tacho_idle_angle;
+	float tacho_rotate_factor;
+	float tacho_needle_length;
+	float steer_pos_x;
+	float steer_pos_y;
+	float steer_size;
+	// ...
+} tnfs_dash_constants;
+
 // global variables
 extern struct tnfs_config g_config;
 extern struct tnfs_game_stats g_game_stats[10];
@@ -711,6 +725,8 @@ extern tnfs_car_data *player_car_ptr;
 extern tnfs_car_data *g_cop_car_ptr;
 extern tnfs_ai_skill_cfg g_ai_skill_cfg;
 extern tnfs_stats_data g_stats_data;
+extern tnfs_dash_constants g_dash_constants;
+extern char g_dash_enabled;
 
 extern char * g_car_wrapfams[];
 extern char * g_ai_tddyn[];
@@ -778,6 +794,7 @@ extern int g_scenery_objects;
 
 extern int g_hud_texPkt[15];
 extern int g_smoke_texPkt[5];
+extern int g_dash_texPkt[10];
 extern tnfs_vec3 g_shadow_points[4];
 extern tnfs_vec9 g_shadow_matrix;
 
@@ -791,6 +808,7 @@ void tnfs_camera_set(tnfs_camera * camera, int id);
 void tnfs_reset_car(tnfs_car_data *car);
 void tnfs_update();
 void tnfs_crash_car();
+void tnfs_toggle_dash();
 void tnfs_sfx_play(int a, int id1, int id2, int volume, int distance, int direction);
 void tnfs_car_local_position_vector(tnfs_car_data * car_data, int * angle, int * length);
 int tnfs_track_node_find(tnfs_vec3 *p_position, int *current);
