@@ -181,6 +181,8 @@ void sfx_load_audio_bank(char * filename) {
 		g_sounds[g_sound_counter].length = (float) out_length / 2;
 		g_sound_counter++;
 	}
+
+	free(filedata);
 }
 
 void sfx_load_file_into_channel(char * filename, int channelId) {
@@ -287,9 +289,7 @@ void sfx_mix_stream(int16_t *outStream, int outLen, sfx_assets * sound) {
 		sound->playback_pos += sound->pitch;
 
 		// volume
-		if (sound->volume < 1.0f) {
-			value *= sound->volume;
-		}
+		value *= sound->volume;
 
 		// sound output mix (just add and clamp value)
 		value += *out;
@@ -325,6 +325,7 @@ void sfx_play_speech_track(int trackId) {
 }
 
 void sfx_play_sound(int id, char loop, float pitch, float volume) {
+	if (volume > 1) volume = 1;
 	g_sounds[id].volume = volume;
 	g_sounds[id].pitch = pitch;
 	g_sounds[id].play = volume > 0 ? 1 : 0;

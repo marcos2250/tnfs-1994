@@ -611,7 +611,7 @@ void gfx_drawVehicle(tnfs_car_data * car) {
 void gfx_drawHorizon() {
 	int layer;
 	int texture;
-	int i;
+	int i, d;
 	float a, x1, x2, y1, y2, z1, z2;
 
 	if (g_track_sel == 2) {
@@ -636,14 +636,16 @@ void gfx_drawHorizon() {
 
 	layer = 2;
 	while (layer--) {
-		a = 0;
-		for (i = 0; i < 12; i++) {
-			x1 = cosf(a);
-			z1 = sinf(a);
+		d = cam_orientation.y / 30;
+		a = (d - 2) * 0.52359f;
+		for (i = 0; i < 5; i++) {
+			x1 = sinf(a);
+			z1 = -cosf(a);
 			a += 0.52359f;
-			x2 = cosf(a);
-			z2 = sinf(a);
-			texture = i % 6;
+			x2 = sinf(a);
+			z2 = -cosf(a);
+			texture = d % 6;
+			d++;
 
 			if (layer) {
 				texture = g_horizon_texPkt[texture+6];

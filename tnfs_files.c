@@ -20,17 +20,8 @@ int readFixed32(unsigned char *buffer, int pos) {
 		| buffer[pos + 3];
 }
 
-int readSigned16(unsigned char *buffer, int pos) {
-	short v = (((short) buffer[pos]) << 8) | buffer[pos + 1];
-	return v;
-}
-
-int readSigned8(unsigned char *buffer, int pos) {
-	int v = buffer[pos];
-	if (v > 0x80) {
-		v -= 0x80;
-	}
-	return v;
+short readSigned16(unsigned char *buffer, int pos) {
+	return (((short) buffer[pos]) << 8) | buffer[pos + 1];
 }
 
 int readTxtLine(char *output, int size, FILE *fp) {
