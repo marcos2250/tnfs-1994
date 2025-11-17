@@ -1311,8 +1311,7 @@ void tnfs_ai_traffic_swerve(tnfs_car_data *car1, int *lane_grid, int lane, int *
 			--j;
 		}
 		if ((others[1] != 0) //
-				&& (g_number_of_cops + g_racer_cars_in_scene <= car1->car_id) //
-				&& (g_number_of_cops + g_racer_cars_in_scene + g_number_of_traffic_cars > car1->car_id) //
+				&& (car1->car_id > 2) //
 				&& ((car1->track_slice - others[1]->track_slice) < 3)) {
 			speedA->y >>= 1;
 			speedB->y >>= 1;
@@ -1382,8 +1381,7 @@ void tnfs_ai_traffic_swerve(tnfs_car_data *car1, int *lane_grid, int lane, int *
 			}
 			++i;
 
-			if ((g_number_of_cops + g_racer_cars_in_scene <= car1->car_id) //
-					&& (g_number_of_cops + g_racer_cars_in_scene + g_number_of_traffic_cars > car1->car_id) //
+			if ((car1->car_id > 2) //
 					&& (others[1] != 0) //
 					&& (others[1]->track_slice - car1->track_slice < 3)) {
 				speedA->y >>= 1;
@@ -1397,17 +1395,6 @@ void tnfs_ai_traffic_swerve(tnfs_car_data *car1, int *lane_grid, int lane, int *
 			}
 		}
 
-		if ((car1->car_id >= 0 && (car1->car_id < g_racer_cars_in_scene)) //
-				&& (others[1] != 0) //
-				&& ((others[1]->track_slice - car1->track_slice) < 2) //
-				&& (car->car_road_speed > 0x140000)) {
-			speed_diff = car->car_road_speed - (car->car_road_speed >> 3);
-			if (speed_diff < 0) {
-				speed_diff = 0x10000;
-			}
-			speedA->y = speed_diff;
-			speedB->y = speed_diff;
-		}
 		if ((lane + 1) == ((track_data[g_slice_mask & car1->track_slice].num_lanes & 0xF) + 4)) {
 			speedA->z >>= 1;
 			speedB->z >>= 1;

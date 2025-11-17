@@ -129,7 +129,7 @@ void tnfs_collision_detect(tnfs_collision_data *body, tnfs_vec3 *surf_normal, tn
 	tnfs_vec3 v_speed;
 	tnfs_vec3 l_edge;
 	tnfs_vec3 g_edge;
-	tnfs_vec3 backoff;
+	tnfs_vec3 backoff = { 0, 0, 0 };
 
 	g_collision_force = 0;
 

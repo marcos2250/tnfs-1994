@@ -104,12 +104,13 @@ byte * read_wwww(byte *data, int path[], int depth) {
 	return data;
 }
 
-int locate_wwww(byte *data, byte *pointer, int depth, char *path_result) {
+int locate_wwww(byte *data, byte *pointer, int depth, int *path_result) {
 	int offset = 0;
 	int i;
-	char wwwwpath[80];
+
+	path_result[depth] = -1;
+
 	if (data == pointer) {
-		sprintf(path_result, "wwww ");
 		return 1;
 	}
 	if (data[0] != 'w' || data[1] != 'w' || data[2] != 'w' || data[3] != 'w') {
@@ -121,8 +122,7 @@ int locate_wwww(byte *data, byte *pointer, int depth, char *path_result) {
 			continue;
 		}
 		if (locate_wwww(data + offset, pointer, depth + 1, path_result)) {
-			strcpy((char*)&wwwwpath, path_result);
-			sprintf(path_result, "%d / %s ", i, (char*)&wwwwpath);
+			path_result[depth] = i;
 			return 1;
 		}
 	}

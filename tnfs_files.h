@@ -21,7 +21,7 @@ byte * openFileBuffer(char * filename, int * fileSize);
 void clearFileBuffer();
 
 byte * read_wwww(byte *data, int path[], int depth);
-int locate_wwww(byte *data, byte *pointer, int depth, char *path_result);
+int locate_wwww(byte *data, byte *pointer, int depth, int *path_result);
 int read_tri_file(char * file);
 int read_carspecs_file(char * file);
 int read_tddyn_file(char * file, tnfs_car_data *car);

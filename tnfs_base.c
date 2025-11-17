@@ -249,9 +249,6 @@ void auto_generate_track() {
 				break;
 			}
 		}
-		for (j = 0; j < 10; j++) {
-			g_terrain_texId[texCount++] = defaultTexId[j % 5];
-		}
 
 		// next node
 		pos_x += fixmul(math_sin_3(track_data[i].heading * 0x400), 0x80000);
@@ -261,10 +258,16 @@ void auto_generate_track() {
 	}
 
 	for (i = 0; i < 600; i++) {
+		// texture nbr
+		for (j = 0; j < 10; j++) {
+			g_terrain_texId[texCount++] = defaultTexId[j % 5];
+		}
+
 		// track section speed
 		g_track_speed[i].top_speed = 0x42;
 		g_track_speed[i].legal_speed = 0x1b;
 		g_track_speed[i].safe_speed = 0x2c;
+
 		//fence
 		g_fences[i] = 0xC0 | 45;
 	}
@@ -316,7 +319,7 @@ void tnfs_init_track(char *tri_file) {
 
 	// swap some points for lane splits/merges
 	sliceptr = (vector3f*) g_terrain;
-	for (chunk = 0; chunk < 600; chunk++) {
+	for (chunk = 0; chunk < 595; chunk++) {
 		i = chunk * 4;
 		split = (track_data[i].num_lanes & 0x1f) - (track_data[i + 4].num_lanes & 0x1f);
 		for (slice = 0; slice < 5; slice++) {

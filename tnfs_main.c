@@ -690,7 +690,7 @@ int texCount = 0;
 int objectSel = 0;
 byte * fileView_data = 0;
 byte testpath[] = {3, 4};
-char g_wpath_result[12];
+int g_wpath_result[8];
 char g_fv_msg[80];
 
 char * g_files[] = {
@@ -765,19 +765,28 @@ void fileView_scan_file(int id) {
 }
 
 void fileView_seekImage(int * pos, int direction) {
+	byte * seek;
 	objectSel += direction;
 	if (objectSel < 0) objectSel = 0;
 	if (objectSel >= texCount) objectSel = texCount - 1;
 	*pos = objectIds[objectSel];
+	seek = fileView_data + objectIds[objectSel];
 	if (fileView_data[0] == 'w') {
-		locate_wwww(fileView_data, (fileView_data + *pos), 0, g_wpath_result);
+		locate_wwww(fileView_data, seek, 0, (int*)&g_wpath_result);
 	}
 }
 
 void fileView_printData() {
+	int i = 0;
+	char auxstr[80];
+	char text[80] = "wwww ";
 	if (fileView_data[0] == 'w') {
-		gfx_draw_text_9500(g_wpath_result, 10, 10);
-		g_wpath_result[0] = 0;
+		while (g_wpath_result[i] >= 0) {
+			strcpy((char*)&auxstr, text);
+			sprintf((char*)&text, "%s / %d ", (char*)&auxstr, g_wpath_result[i]);
+			i++;
+		}
+		gfx_draw_text_9500((char*)&text, 10, 10);
 	}
 }
 
