@@ -12,7 +12,7 @@
 
 extern const int SCREEN_WIDTH;
 extern const int SCREEN_HEIGHT;
-extern const int BUFFER_PIXELS;
+extern const float SCREEN_SCALE;
 
 extern unsigned char g_backbuffer[307200]; //320x240x4
 

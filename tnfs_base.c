@@ -317,10 +317,12 @@ void tnfs_init_track(char *tri_file) {
 		track_data[i].vf_fence_R.z = -(float) (track_data[i].pos.z + fixmul(s, dR)) / 0x10000;
 	}
 
-	// swap some points for lane splits/merges
+	//FIX: track model adjustments
 	sliceptr = (vector3f*) g_terrain;
 	for (chunk = 0; chunk < 595; chunk++) {
 		i = chunk * 4;
+
+		// swap some points for lane splits/merges
 		split = (track_data[i].num_lanes & 0x1f) - (track_data[i + 4].num_lanes & 0x1f);
 		for (slice = 0; slice < 5; slice++) {
 	    	if ((slice == 0 && split < 0) //lane split (1st row)
@@ -331,14 +333,22 @@ void tnfs_init_track(char *tri_file) {
 	    	}
 	    	sliceptr += 11;
 		}
-	}
 
-	// invisible polygons at tunnel entrances
-	for (chunk = 0; chunk < 600; chunk++) {
-		i = chunk * 4;
-		if (track_data[i].item_mode == 3 && track_data[i + 4].item_mode == 5) {
+		// invisible polygons at tunnel entrances
+		if (track_data[i].item_mode != 4 && track_data[i + 4].item_mode == 4) {
 			g_terrain_texId[chunk * 10 + 4] = 0; //rightmost strip
 			g_terrain_texId[chunk * 10 + 9] = 0; //leftmost strip
+		}
+		
+		// draw tunnel wall as fences
+		if (track_data[i].item_mode == 7 || track_data[i].item_mode == 9) {
+			if (g_track_sel == 0) g_fences[chunk] = 3; //35 - 32;
+			if (g_track_sel == 1) g_fences[chunk] = 9; //41 - 32;
+			if (track_data[i].item_mode == 7) {
+				g_fences[chunk] |= 0x40;
+			} else {
+				g_fences[chunk] |= 0x80;
+			}
 		}
 	}
 
@@ -722,17 +732,14 @@ void tnfs_change_gear_automatic(int shift) {
 	case 1:
 		g_car_array[0].gear_selected = -2;
 		g_car_array[0].is_gear_engaged = 1;
-		printf("Gear: Reverse\n");
 		break;
 	case 2:
 		g_car_array[0].gear_selected = -1;
 		g_car_array[0].is_gear_engaged = 0;
-		printf("Gear: Neutral\n");
 		break;
 	case 3:
 		g_car_array[0].gear_selected = 0;
 		g_car_array[0].is_gear_engaged = 1;
-		printf("Gear: Drive\n");
 		break;
 	}
 }
@@ -743,15 +750,12 @@ void tnfs_change_gear_manual(int shift) {
 	switch (g_car_array[0].gear_selected) {
 	case -2:
 		g_car_array[0].is_gear_engaged = 1;
-		printf("Gear: Reverse\n");
 		break;
 	case -1:
 		g_car_array[0].is_gear_engaged = 0;
-		printf("Gear: Neutral\n");
 		break;
 	default:
 		g_car_array[0].is_gear_engaged = 1;
-		printf("Gear: %d\n", g_car_array[0].gear_selected + 1);
 		break;
 	}
 }
@@ -1390,15 +1394,15 @@ void tnfs_init_sim() {
 	if (g_car_array[0].car_model_id == 3) { // CZR1
 		g_dash_constants.tacho_rotate_factor = 1.57f;
 		g_dash_constants.tacho_idle_angle = 4.71f;
-		g_dash_constants.tacho_needle_length = 65;
+		g_dash_constants.tacho_needle_length = 25;
 	} else {
 		g_dash_constants.tacho_rotate_factor = 4.71f;
 		g_dash_constants.tacho_idle_angle = 3.92f;
-		g_dash_constants.tacho_needle_length = 35;
+		g_dash_constants.tacho_needle_length = 15;
 	}
-	g_dash_constants.steer_pos_x = 160 * 2.5;
-	g_dash_constants.steer_pos_y = 220 * 2.5;
-	g_dash_constants.steer_size = 88 * 2.5;
+	g_dash_constants.steer_pos_x = 160;
+	g_dash_constants.steer_pos_y = 220;
+	g_dash_constants.steer_size = 88;
 
 
 	// common art

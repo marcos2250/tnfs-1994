@@ -488,9 +488,38 @@ typedef struct tnfs_track_data {
 	unsigned char roadLeftFence; // 2
 	unsigned char roadRightFence; // 3
 	unsigned char num_lanes; // 4
+
+	/*
+	 * 0x11 no fences
+	 * 0x01 left fence
+	 * 0x10 right fence
+	 * 0x00 both fences
+	 */
 	unsigned char fence_flag; // 5
+
+	/*
+	 * 0. Tarmac
+	 * 1. Left shoulder
+	 * 2. Right shoulder
+	 * 3. Tarmac
+	 * 4. Ice?
+	 */
 	unsigned char shoulder_surface_type; // 6
+
+	/*
+	 * 0. lane split
+	 * 1. 3 lanes
+	 * 2. lane merge
+	 * 3. normal single lane
+	 * 4. tunnel
+	 * 5. bridge
+	 * 6. ?
+	 * 7. right tunnel wall
+	 * 8. ?
+	 * 9. left tunnel wall
+	 */
 	unsigned char item_mode; // 7
+
 	tnfs_vec3 pos; // 8
 	short slope; // 20
 	short slant; // 22

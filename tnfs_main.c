@@ -167,7 +167,7 @@ void gfx_update() {
 }
 
 void renderGlFrontEnd() {
-	glPixelZoom(2.5, 2.5);
+	glPixelZoom(SCREEN_SCALE, SCREEN_SCALE);
 	glDrawPixels(320, 240, GL_RGBA, GL_UNSIGNED_BYTE, &g_backbuffer);
 	SDL_GL_SwapWindow(window);
 }

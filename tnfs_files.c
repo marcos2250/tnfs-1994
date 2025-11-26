@@ -1004,9 +1004,9 @@ void read_dash_constants(char * carname) {
 	for (i = 0; i < 100; i++) {
 		readTxtLine((char*)&auxstr, 120, ptr);
 		if (strncmp((char*)&auxstr, "TACHO", 5) == 0) {
-			g_dash_constants.tacho_pos_x = (160 + readTxtInt(ptr)) * 2.5;
+			g_dash_constants.tacho_pos_x = readTxtInt(ptr) + 160;
 			readTxtLine((char*)&auxstr, 120, ptr);
-			g_dash_constants.tacho_pos_y = (240 + readTxtInt(ptr)) * 2.5;
+			g_dash_constants.tacho_pos_y = readTxtInt(ptr) + 240;
 			break;
 		}
 	}

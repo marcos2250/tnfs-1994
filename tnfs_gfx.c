@@ -7,8 +7,9 @@
 #include "tnfs_files.h"
 #include "ccb.h"
 
-const int SCREEN_WIDTH = 800;
-const int SCREEN_HEIGHT = 600;
+const int SCREEN_WIDTH = 1280; //800;
+const int SCREEN_HEIGHT = 960; //600;
+const float SCREEN_SCALE = 4; //2.5;
 
 byte g_backbuffer[307200];
 shpm_image * g_shape; 
@@ -777,6 +778,7 @@ void gfx_drawRoad() {
 	int chunk, strip, slice, texture;
 	int count;
 	int i;
+	float h;
 
 	glMatrixMode(GL_MODELVIEW);
 	glLoadIdentity();
@@ -790,7 +792,7 @@ void gfx_drawRoad() {
 	glTranslatef(cam_position.x, cam_position.y, cam_position.z);
 
 	glColor3f(1.0f, 1.0f, 1.0);
-	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+	glPolygonMode(GL_FRONT, GL_FILL);
 
 	// terrain
 	chunk = (camera.track_slice >> 2) + 19;
@@ -830,48 +832,61 @@ void gfx_drawRoad() {
 		chunk--;
 	}
 
-	// fences
+	// fences/tunnel wall
 	chunk = (camera.track_slice >> 2) + 9;
 	count = 10;
 	while (count--) {
 		p1 = chunk * 4;
 		p2 = p1 + 1;
-		texture = g_fences[chunk] & 0x3F;
-		if (texture < 42) texture = 48; //FIXME wrong fence texture id?
-		texture = g_terrain_texPkt[texture * 4];
 
-		for (slice = 0; slice < 4; slice++) {
-			glBindTexture(GL_TEXTURE_2D, texture++);
+		if (g_fences[chunk] != 0) {
+			texture = (g_fences[chunk] & 0x1F) + 0x20;
+			texture = g_terrain_texPkt[texture * 4];
 
-			// left fence
-			if (g_fences[chunk] & 0x80) {
-				glBegin(GL_TRIANGLE_STRIP);
-				glTexCoord2d(0, 1);
-				glVertex3f(track_data[p1].vf_fence_L.x, track_data[p1].vf_fence_L.y, track_data[p1].vf_fence_L.z);
-				glTexCoord2d(0, 0);
-				glVertex3f(track_data[p1].vf_fence_L.x, track_data[p1].vf_fence_L.y + 1, track_data[p1].vf_fence_L.z);
-				glTexCoord2d(1, 1);
-				glVertex3f(track_data[p2].vf_fence_L.x, track_data[p2].vf_fence_L.y, track_data[p2].vf_fence_L.z);
-				glTexCoord2d(1, 0);
-				glVertex3f(track_data[p2].vf_fence_L.x, track_data[p2].vf_fence_L.y + 1, track_data[p2].vf_fence_L.z);
-				glEnd();
+			for (slice = 0; slice < 4; slice++) {
+				glBindTexture(GL_TEXTURE_2D, texture++);
+
+				// fence/wall height
+				if (track_data[p1].item_mode == 7 || track_data[p1].item_mode == 9) {
+					h = 8; // tunnel wall
+				} else {
+					if (g_fences[chunk] & 0x20) {
+						h = 0.9f; // guard rail
+					} else {
+						h = 1.8f; // fence
+					}
+				}
+
+				// left fence
+				if (g_fences[chunk] & 0x80) {
+					glBegin(GL_TRIANGLE_STRIP);
+					glTexCoord2d(0, 1);
+					glVertex3f(track_data[p1].vf_fence_L.x, track_data[p1].vf_fence_L.y, track_data[p1].vf_fence_L.z);
+					glTexCoord2d(0, 0);
+					glVertex3f(track_data[p1].vf_fence_L.x, track_data[p1].vf_fence_L.y + h, track_data[p1].vf_fence_L.z);
+					glTexCoord2d(1, 1);
+					glVertex3f(track_data[p2].vf_fence_L.x, track_data[p2].vf_fence_L.y, track_data[p2].vf_fence_L.z);
+					glTexCoord2d(1, 0);
+					glVertex3f(track_data[p2].vf_fence_L.x, track_data[p2].vf_fence_L.y + h, track_data[p2].vf_fence_L.z);
+					glEnd();
+				}
+
+				// right fence
+				if (g_fences[chunk] & 0x40) {
+					glBegin(GL_TRIANGLE_STRIP);
+					glTexCoord2d(0, 1);
+					glVertex3f(track_data[p2].vf_fence_R.x, track_data[p2].vf_fence_R.y, track_data[p2].vf_fence_R.z);
+					glTexCoord2d(0, 0);
+					glVertex3f(track_data[p2].vf_fence_R.x, track_data[p2].vf_fence_R.y + h, track_data[p2].vf_fence_R.z);
+					glTexCoord2d(1, 1);
+					glVertex3f(track_data[p1].vf_fence_R.x, track_data[p1].vf_fence_R.y, track_data[p1].vf_fence_R.z);
+					glTexCoord2d(1, 0);
+					glVertex3f(track_data[p1].vf_fence_R.x, track_data[p1].vf_fence_R.y + h, track_data[p1].vf_fence_R.z);
+					glEnd();
+				}
+				p1++;
+				p2++;
 			}
-
-			// right fence
-			if (g_fences[chunk] & 0x40) {
-				glBegin(GL_TRIANGLE_STRIP);
-				glTexCoord2d(0, 1);
-				glVertex3f(track_data[p2].vf_fence_R.x, track_data[p2].vf_fence_R.y, track_data[p2].vf_fence_R.z);
-				glTexCoord2d(0, 0);
-				glVertex3f(track_data[p2].vf_fence_R.x, track_data[p2].vf_fence_R.y + 1, track_data[p2].vf_fence_R.z);
-				glTexCoord2d(1, 1);
-				glVertex3f(track_data[p1].vf_fence_R.x, track_data[p1].vf_fence_R.y, track_data[p1].vf_fence_R.z);
-				glTexCoord2d(1, 0);
-				glVertex3f(track_data[p1].vf_fence_R.x, track_data[p1].vf_fence_R.y + 1, track_data[p1].vf_fence_R.z);
-				glEnd();
-			}
-			p1++;
-			p2++;
 		}
 		chunk--;
 	}
@@ -894,6 +909,10 @@ void gfx_drawRoad() {
 }
 
 void gfx_drawSprite(int x1, int y1, int x2, int y2, int texId) {
+	x1 *= SCREEN_SCALE;
+	x2 *= SCREEN_SCALE;
+	y1 *= SCREEN_SCALE;
+	y2 *= SCREEN_SCALE;
 	glBindTexture(GL_TEXTURE_2D, texId);
 	glBegin(GL_TRIANGLE_STRIP);
 	glTexCoord2d(0, 0);
@@ -908,8 +927,8 @@ void gfx_drawSprite(int x1, int y1, int x2, int y2, int texId) {
 }
 
 void gfx_drawHudDigit(int x, int y, int n) {
-	int x2 = x + 10;
-	int y2 = y + 12;
+	int x2 = x + 4;
+	int y2 = y + 5;
 	gfx_drawSprite(x, y, x2, y2, g_hud_texPkt[n]);
 }
 
@@ -927,28 +946,28 @@ void gfx_draw_hud() {
 	// tachometer
 	glEnable( GL_BLEND );
 	glColor3f(1.0f, 1.0f, 1.0);
-	gfx_drawSprite(80, 435, 208, 490, g_hud_texPkt[14]);
-	gfx_drawSprite(65, 410, 225, 550, g_hud_texPkt[13]);
+	gfx_drawSprite(32, 174, 83, 196, g_hud_texPkt[14]);
+	gfx_drawSprite(26, 164, 90, 220, g_hud_texPkt[13]);
 	glDisable( GL_BLEND );
 
 	// gear
 	int gear = player_car_ptr->gear_selected + 1;
 	if (gear == -1) gear = 11;
 	if (gear == 0) gear = 10;
-	gfx_drawHudDigit(202, 500, gear);
+	gfx_drawHudDigit(81, 200, gear);
 
 	// speed
 	speed = (player_car_ptr->speed >> 16) * 2.23694f; //to MPH
-	gfx_drawHudDigit(191, 528, speed % 10);
-	if (speed > 9)  gfx_drawHudDigit(178, 528, (speed / 10) % 10);
-	if (speed > 99) gfx_drawHudDigit(166, 528, (speed / 100) % 10);
+	gfx_drawHudDigit(76, 211, speed % 10);
+	if (speed > 9)  gfx_drawHudDigit(71, 211, (speed / 10) % 10);
+	if (speed > 99) gfx_drawHudDigit(66, 211, (speed / 100) % 10);
 
 	// track slice
 	speed = player_car_ptr->track_slice;
-	gfx_drawHudDigit(55, 10, speed % 10);
-	gfx_drawHudDigit(40, 10, (speed / 10) % 10);
-	gfx_drawHudDigit(25, 10, (speed / 100) % 10);
-	gfx_drawHudDigit(10, 10, (speed / 1000) % 10);
+	gfx_drawHudDigit(22, 4, speed % 10);
+	gfx_drawHudDigit(16, 4, (speed / 10) % 10);
+	gfx_drawHudDigit(10, 4, (speed / 100) % 10);
+	gfx_drawHudDigit( 4, 4, (speed / 1000) % 10);
 
 	// RPM needle
 	glBindTexture(GL_TEXTURE_2D, 0);
@@ -959,15 +978,15 @@ void gfx_draw_hud() {
 	matrix[0] = c; matrix[1] = -s; matrix[2] = 0; matrix[3] = 0;
 	matrix[4] = s; matrix[5] = c; matrix[6] = 0; matrix[7] = 0;
 	matrix[8] = 0; matrix[9] = 0; matrix[10] = 0; matrix[11] = 0;
-	matrix[12] = 145; matrix[13] = 500; matrix[14] = 0; matrix[15] = 1;
+	matrix[12] = 58 * SCREEN_SCALE; matrix[13] = 200 * SCREEN_SCALE; matrix[14] = 0; matrix[15] = 1;
 	glLoadMatrixf(matrix);
 
 	glColor3f(1.0f, 0.0f, 0.0);
 	glBegin(GL_TRIANGLE_STRIP);
 	glVertex3f(-2, 0, 0);
 	glVertex3f(+2, 0, 0);
-	glVertex3f(-2, 60, 0);
-	glVertex3f(+2, 60, 0);
+	glVertex3f(-2, 24 * SCREEN_SCALE, 0);
+	glVertex3f(+2, 24 * SCREEN_SCALE, 0);
 	glEnd();
 
 	// steer indicator
@@ -978,14 +997,14 @@ void gfx_draw_hud() {
 	matrix[0] = c; matrix[1] = -s; matrix[2] = 0; matrix[3] = 0;
 	matrix[4] = s; matrix[5] = c; matrix[6] = 0; matrix[7] = 0;
 	matrix[8] = 0; matrix[9] = 0; matrix[10] = 0; matrix[11] = 0;
-	matrix[12] = 145; matrix[13] = 500; matrix[14] = 0; matrix[15] = 1;
+	matrix[12] = 58 * SCREEN_SCALE; matrix[13] = 200 * SCREEN_SCALE; matrix[14] = 0; matrix[15] = 1;
 	glLoadMatrixf(matrix);
 
 	glColor3f(1.0f, 0.0f, 0.0);
 	glBegin(GL_TRIANGLES);
-	glVertex3f(-6, 92, 0);
-	glVertex3f(+6, 92, 0);
-	glVertex3f(0, 80, 0);
+	glVertex3f(-2 * SCREEN_SCALE, 32 * SCREEN_SCALE, 0);
+	glVertex3f(+2 * SCREEN_SCALE, 32 * SCREEN_SCALE, 0);
+	glVertex3f(0, 32 * SCREEN_SCALE, 0);
 	glEnd();
 }
 
@@ -1004,7 +1023,7 @@ void gfx_draw_dashboard() {
 	glLoadIdentity();
 
 	// dash
-	gfx_drawSprite(0, 600, 800, 0, g_dash_texPkt[0]);
+	gfx_drawSprite(0, 240, 320, 0, g_dash_texPkt[0]);
 
 	// RPM needle
 	glBindTexture(GL_TEXTURE_2D, 0);
@@ -1016,15 +1035,15 @@ void gfx_draw_dashboard() {
 	matrix[0] = c; matrix[1] = -s; matrix[2] = 0; matrix[3] = 0;
 	matrix[4] = s; matrix[5] = c; matrix[6] = 0; matrix[7] = 0;
 	matrix[8] = 0; matrix[9] = 0; matrix[10] = 0; matrix[11] = 0;
-	matrix[12] = g_dash_constants.tacho_pos_x; matrix[13] = g_dash_constants.tacho_pos_y; matrix[14] = 0; matrix[15] = 1;
+	matrix[12] = g_dash_constants.tacho_pos_x * SCREEN_SCALE; matrix[13] = g_dash_constants.tacho_pos_y * SCREEN_SCALE; matrix[14] = 0; matrix[15] = 1;
 	glLoadMatrixf(matrix);
 
 	glColor3f(0.9f, 0.3f, 0.1f);
 	glBegin(GL_TRIANGLE_STRIP);
 	glVertex3f(-1, 0, 0);
 	glVertex3f(+1, 0, 0);
-	glVertex3f(-1, g_dash_constants.tacho_needle_length, 0);
-	glVertex3f(+1, g_dash_constants.tacho_needle_length, 0);
+	glVertex3f(-1, g_dash_constants.tacho_needle_length * SCREEN_SCALE, 0);
+	glVertex3f(+1, g_dash_constants.tacho_needle_length * SCREEN_SCALE, 0);
 	glEnd();
 
 	//steering wheel
@@ -1036,7 +1055,7 @@ void gfx_draw_dashboard() {
 	matrix[0] = c; matrix[1] = -s; matrix[2] = 0; matrix[3] = 0;
 	matrix[4] = s; matrix[5] = c; matrix[6] = 0; matrix[7] = 0;
 	matrix[8] = 0; matrix[9] = 0; matrix[10] = 0; matrix[11] = 0;
-	matrix[12] = g_dash_constants.steer_pos_x; matrix[13] = g_dash_constants.steer_pos_y; matrix[14] = 0; matrix[15] = 1;
+	matrix[12] = g_dash_constants.steer_pos_x * SCREEN_SCALE; matrix[13] = g_dash_constants.steer_pos_y * SCREEN_SCALE; matrix[14] = 0; matrix[15] = 1;
 	glLoadMatrixf(matrix);
 	gfx_drawSprite(-g_dash_constants.steer_size, g_dash_constants.steer_size, g_dash_constants.steer_size, -g_dash_constants.steer_size, g_dash_texPkt[1]);
 	glBindTexture(GL_TEXTURE_2D, 0);
