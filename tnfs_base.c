@@ -71,6 +71,8 @@ char * g_Track_files[4] = { "Al", "Cl", "Cy", "Al" };
 char * g_car_files[] = { "TSupra", "LDiablo", "P911", "CZR1", "F512TR", "DVIPER", "ANSX", "MRX7" }; //valid spec files
                        // "Porsche911", "TRUCK1", "FERRARI512TR", "CAR1" //older versions spec files
 
+char * g_Car_files[] = { "TSUPRA", "LDIABLO", "P911", "CZR1", "F512TR", "DVIPER", "ANSX", "MRX7" };
+
 char * g_car_wrapfams[] = {
 		"TSupra", "LDiablo", "P911", "CZR1", "F512TR", "DVIPER", "ANSX", "MRX7", //featured cars
 		"CopMust", //"CopCamaro", "CopCaprice", "CopVic",
@@ -82,8 +84,6 @@ char * g_ai_tddyn[] = {
 		"copMust",
 		"Wagon", "crx", "Vandura", "BMW", "SunBird", "Jetta", "RODEO", "axxess", "Probe", "Jeep",
 		"lemans", "Pickup", "Sasco", "PRELUDE", "GMCTRUCK", "PROBE94", "CAR1", "CAR1" }; //"Inviso"?
-
-char * g_dash_files[] = { "TSUPRA", "LDIABLO", "P911", "CZR1", "F512TR", "DVIPER", "ANSX", "MRX7" };
 
 
 // car models
@@ -629,7 +629,11 @@ void tnfs_init_car() {
 	player_car_ptr = &g_car_array[0];
 
 	// load car specs
-	read_carspecs_file(g_car_files[g_player_car]);
+	// TNFS disc brings car data in 2 files - BIN and TXT formats
+	// although both files contains the exact same values, the BIN file is preferred
+	if (!read_carspecs_file_bin(g_Car_files[g_player_car])) {
+		read_carspecs_file_txt(g_car_files[g_player_car]);
+	}
 
 	car->crash_state = 2;
 	car->car_id = 0;
@@ -762,7 +766,7 @@ void tnfs_change_gear_manual(int shift) {
 
 void tnfs_change_gear_up() {
 	if (g_car_array[0].gear_auto_selected == 0) {
-		if (g_car_array[0].gear_selected < car_specs.number_of_gears - 1)
+		if (g_car_array[0].gear_selected < car_specs.number_of_gears - 3)
 			tnfs_change_gear_manual(+1);
 	} else {
 		if (g_car_array[0].gear_auto_selected < 3)
@@ -1388,20 +1392,20 @@ void tnfs_init_sim() {
 
 	// create hud
 	read_dash_constants(g_car_files[g_car_array[0].car_model_id]);
-	read_hud_dash_file(g_dash_files[g_car_array[0].car_model_id]);
+	read_hud_dash_file(g_Car_files[g_car_array[0].car_model_id]);
 
 	// more dash constants
 	if (g_car_array[0].car_model_id == 3) { // CZR1
 		g_dash_constants.tacho_rotate_factor = 1.57f;
-		g_dash_constants.tacho_idle_angle = 4.71f;
-		g_dash_constants.tacho_needle_length = 25;
+		g_dash_constants.gauge_idle_angle = 4.71f;
+		g_dash_constants.gauge_needle_length = 25;
 	} else {
 		g_dash_constants.tacho_rotate_factor = 4.71f;
-		g_dash_constants.tacho_idle_angle = 3.92f;
-		g_dash_constants.tacho_needle_length = 15;
+		g_dash_constants.gauge_idle_angle = 3.92f;
+		g_dash_constants.gauge_needle_length = 15;
 	}
 	g_dash_constants.steer_pos_x = 160;
-	g_dash_constants.steer_pos_y = 220;
+	g_dash_constants.steer_pos_y = 210;
 	g_dash_constants.steer_size = 88;
 
 

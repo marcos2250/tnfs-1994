@@ -377,9 +377,47 @@ int read_tri_file(char * file) {
 }
 
 /*
+ * Read a TNFS 3DO .bigSpecsFam binary file
+ */
+int read_carspecs_file_bin(char * carname) {
+	FILE *ptr;
+	byte buffer[1892];
+	byte * specs_ptr;
+	int i;
+	char file[80];
+
+	specs_ptr = (byte*) &car_specs;
+
+	sprintf(file, "assets/DriveData/CarData/%s.bigSpecsFam", carname);
+	ptr = fopen(file,"rb");
+	if (!ptr) {
+		printf("File not found: %s\n", file);
+		return 0;
+	}
+
+	fread(buffer, 1892, 1, ptr);
+
+	for (i = 0x14; i < 0x364; i += 4) {
+		specs_ptr[0] = buffer[i + 3];
+		specs_ptr[1] = buffer[i + 2];
+		specs_ptr[2] = buffer[i + 1];
+		specs_ptr[3] = buffer[i];
+		specs_ptr += 4;
+	}
+	for (i = 0x364; i < 0x764; i++) {
+		*specs_ptr = buffer[i];
+		specs_ptr++;
+	}
+
+	fclose(ptr);
+	printf("Loaded car specs file %s.\n", file);
+	return 1;
+}
+
+/*
  * Read a TNFS 3DO .spec text file
  */
-int read_carspecs_file(char * carname) {
+int read_carspecs_file_txt(char * carname) {
 	FILE *ptr;
 	int i;
 	char file[80];
@@ -450,8 +488,8 @@ int read_carspecs_file(char * carname) {
 
 	car_specs.front_roll_stiffness = readTxtDecimal(ptr); //never used
 	car_specs.rear_roll_stiffness = readTxtDecimal(ptr);
-	car_specs.rear_roll_stiffness_inv = math_inverse_value(car_specs.rear_roll_stiffness);
-	car_specs.front_roll_stiffness_inv = 0x10000 - car_specs.rear_roll_stiffness_inv;
+	car_specs.front_roll_stiffness_perc = math_div(car_specs.front_roll_stiffness, car_specs.front_roll_stiffness + car_specs.rear_roll_stiffness);
+	car_specs.rear_roll_stiffness_perc = 0x10000 - car_specs.front_roll_stiffness_perc;
 
 	car_specs.weight_transfer_factor = car_specs.centre_of_gravity_height - car_specs.roll_axis_height;
 
@@ -493,24 +531,24 @@ int read_carspecs_file(char * carname) {
 	car_specs.centre_y = readTxtInt(ptr); //not used
 
 	car_specs.maxAutoSteerAngle = readTxtDecimal(ptr);
-	car_specs.autoRampMultShift = readTxtDecimal(ptr);
-	car_specs.autoRampDivShift = readTxtDecimal(ptr);
-	car_specs.steerModel = readTxtDecimal(ptr);
-	car_specs.vel1_AS2 = readTxtDecimal(ptr);
-	car_specs.vel2_AS2 = readTxtDecimal(ptr);
-	car_specs.vel3_AS2 = readTxtDecimal(ptr);
-	car_specs.vel4_AS2 = readTxtDecimal(ptr);
+	car_specs.autoRampMultShift = readTxtInt(ptr);
+	car_specs.autoRampDivShift = readTxtInt(ptr);
+	car_specs.steerModel = readTxtInt(ptr);
+	car_specs.vel1_AS2 = readTxtInt(ptr);
+	car_specs.vel2_AS2 = readTxtInt(ptr);
+	car_specs.vel3_AS2 = readTxtInt(ptr);
+	car_specs.vel4_AS2 = readTxtInt(ptr);
 	car_specs.velRamp_AS2 = readTxtDecimal(ptr);
 	car_specs.velAttenuate_AS2 = readTxtDecimal(ptr);
-	car_specs.autoRampMultShift_AS2 = readTxtDecimal(ptr);
-	car_specs.autoRampDivShift_AS2 = readTxtDecimal(ptr);
+	car_specs.autoRampMultShift_AS2 = readTxtInt(ptr);
+	car_specs.autoRampDivShift_AS2 = readTxtInt(ptr);
 
 	car_specs.shift_timer = readTxtInt(ptr);
 	car_specs.noGasRpmDec = readTxtInt(ptr);
 	car_specs.gasRpmInc = readTxtInt(ptr);
 	car_specs.clutchDropRpmDec = readTxtInt(ptr);
 	car_specs.clutchDropRpmInc = readTxtInt(ptr);
-	car_specs.negTorque = readTxtDecimal(ptr); //<< 1
+	car_specs.negTorque = readTxtDecimal(ptr);
 
 	car_specs.torque_table_entries = readTxtInt(ptr);
 
@@ -814,7 +852,6 @@ int read_carmodel_file(char * carname, tnfs_carmodel3d * carmodel) {
 		carmodel->brakeLightTexId = gfx_store_texture(shpm_image_convert(tex1, 0));
 		carmodel->bkll = seekToken(ori3, "bkll");
 		carmodel->bklr = seekToken(ori3, "bklr");
-		carmodel->brakeTexId = carmodel->brakeLightTexId - 24;
 	}
 
 	// wheel texture
@@ -973,6 +1010,7 @@ void read_dash_constants(char * carname) {
 	FILE *ptr;
 	int i;
 	char auxstr[120];
+	int align_bottom = 0;
 
 	g_dash_constants.num_panels = 0;
 
@@ -983,6 +1021,10 @@ void read_dash_constants(char * carname) {
 		return;
 	}
 
+	if (carname[0] == 'C') {
+		align_bottom = 10;
+	}
+
 	readTxtSkipLine(ptr);
 	g_dash_constants.num_panels = readTxtInt(ptr);
 
@@ -990,7 +1032,7 @@ void read_dash_constants(char * carname) {
 		readTxtSkipLine(ptr);
 		g_dash_constants.position[i].x = readTxtInt(ptr);
 		readTxtSkipLine(ptr);
-		g_dash_constants.position[i].y = readTxtInt(ptr);
+		g_dash_constants.position[i].y = readTxtInt(ptr) + align_bottom;
 		readTxtSkipLine(ptr);
 		readTxtSkipLine(ptr);
 		readTxtSkipLine(ptr);
@@ -1003,10 +1045,19 @@ void read_dash_constants(char * carname) {
 
 	for (i = 0; i < 100; i++) {
 		readTxtLine((char*)&auxstr, 120, ptr);
+		if (strncmp((char*)&auxstr, "SPEEDO", 5) == 0) {
+			readTxtSkipLine(ptr);
+			readTxtSkipLine(ptr);
+			readTxtSkipLine(ptr);
+			readTxtSkipLine(ptr);
+			g_dash_constants.speedo_pos_x = ((float) readTxtInt(ptr)) * 0.9 + 160;
+			readTxtSkipLine(ptr);
+			g_dash_constants.speedo_pos_y = ((float) readTxtInt(ptr)) * 0.9 + 220 + align_bottom;
+		}
 		if (strncmp((char*)&auxstr, "TACHO", 5) == 0) {
-			g_dash_constants.tacho_pos_x = readTxtInt(ptr) + 160;
-			readTxtLine((char*)&auxstr, 120, ptr);
-			g_dash_constants.tacho_pos_y = readTxtInt(ptr) + 240;
+			g_dash_constants.tacho_pos_x = ((float) readTxtInt(ptr)) * 0.9 + 160;
+			readTxtSkipLine(ptr);
+			g_dash_constants.tacho_pos_y = ((float) readTxtInt(ptr)) * 0.9 + 220 + align_bottom;
 			break;
 		}
 	}
@@ -1057,12 +1108,13 @@ int read_hud_dash_file(char * carname) {
 	if (g_dash_constants.num_panels == 0) {
 		return 1;
 	}
-	aux = 320*240*4;
+	// combine all panels into a single image
+	aux = 340*260*4;
 	image = (image_data *) malloc(aux + 32);
 	memset(image->rgba, 0, aux);
 	image->size = aux;
-	image->width = 320;
-	image->height = 240;
+	image->width = 340;
+	image->height = 260;
 
 	for (i = 0; i < g_dash_constants.num_panels; i++) {
 		wpath[0] = 1;
@@ -1070,8 +1122,9 @@ int read_hud_dash_file(char * carname) {
 		ccb = (ccb_chunk*) read_wwww(dashfile, wpath, 2);
 		ccb_parse_header(ccb);
 		ccb_draw_to_buffer(image->rgba,
-				160 + g_dash_constants.position[i].x,
-				240 + g_dash_constants.position[i].y);
+				g_dash_constants.position[i].x + 170,
+				g_dash_constants.position[i].y + 240,
+				340, 260, 0);
 	}
 	g_dash_texPkt[0] = gfx_store_texture(image);
 	free(image);
@@ -1081,6 +1134,17 @@ int read_hud_dash_file(char * carname) {
 	wpath[1] = g_dash_constants.num_panels + 2;
 	ccb = (ccb_chunk*) read_wwww(dashfile, wpath, 2);
 	g_dash_texPkt[1] = gfx_store_ccb(ccb, 0xFF);
+
+	//shift panels
+	aux = readFixed32(dashfile, 0xC);
+	aux = readFixed32(dashfile, aux + 4);
+	for (i = 0; i < 5; i++) {
+		aux--;
+		wpath[0] = 1;
+		wpath[1] = aux;
+		ccb = (ccb_chunk*) read_wwww(dashfile, wpath, 2);
+		g_dash_texPkt[i + 2] = gfx_store_ccb(ccb, 0xFF);
+	}
 
 	return 1;
 }

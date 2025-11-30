@@ -16,7 +16,10 @@ int bpp;
 int isBgnd;
 int isPacked;
 int isShaded;
-byte toBackbuffer;
+int buffer_width;
+int buffer_height;
+int buffer_size;
+char isUpsideDown;
 
 int isBlockLabel(char *label, byte *data) {
 	return label[0] == data[0] && label[1] == data[1] && label[2] == data[2] && label[3] == data[3];
@@ -65,7 +68,7 @@ int getPaletteColor(int pixel) {
 }
 
 void writepixel(byte * buffer, int *idx, int rgb, int shade) {
-	if (*idx > 307200 || *idx < 0) return;
+	if (*idx > buffer_size || *idx < 0) return;
 
 	//if (!isBgnd && ((rgb & 0x7FFF) == 0)) {
 	if (isBgnd == 0 && rgb == 0) {
@@ -226,7 +229,10 @@ int shpm_parse_header(shpm_image * shape) {
 	isPacked = shape->flags & 0x80;
 
 	plutOffset = (shape->plut_le[0] << 16) | (shape->plut_le[1] << 8) | shape->plut_le[2];
-	if (plutOffset > 0 && plutOffset < 0xf00000) {
+	if (plutOffset != 0) {
+		if (plutOffset > 0xf00000) {
+			plutOffset = plutOffset - 0x1000000;
+		}
 		plut = (byte*)shape + plutOffset + 0x10;
 	} else {
 		plut = 0;
@@ -259,8 +265,10 @@ void ccb_decode_linear_image(byte * output, int posX, int posY) {
 	}
 
 	for (by = 0; by < height; by++) {
-		if (toBackbuffer) {
-			outidx = ((240 - by - posY - 1) * 320 + posX) * 4;
+		if (isUpsideDown) {
+			outidx = ((buffer_height - by - posY - 1) * buffer_width + posX) * 4;
+		} else {
+			outidx = (((by + posY) * buffer_width) + posX) * 4;
 		}
 
 		for (bx = 0; bx < width; bx++) {
@@ -319,10 +327,10 @@ void ccb_decode_packed_image(byte * output, int posX, int posY) {
 	}
 
 	for (by = 0; by < height; by++) {
-		if (toBackbuffer) {
-			outidx = ((240 - by - posY - 1) * 320 + posX) * 4;
+		if (isUpsideDown) {
+			outidx = ((buffer_height - by - posY - 1) * buffer_width + posX) * 4;
 		} else {
-			outidx = by * width * 4;
+			outidx = (((by + posY) * buffer_width) + posX) * 4;
 		}
 
 		bit = offset * 8;
@@ -376,13 +384,18 @@ void ccb_decode_packed_image(byte * output, int posX, int posY) {
 	}
 }
 
-void ccb_draw_to_buffer(byte * output, int left, int top) {
+void ccb_draw_to_buffer(byte * output, int left, int top, int bufWidth, int bufHeight, char upsideDown) {
 	// magic flag to center image on screen
 	if (top == -990) {
 		left = (320 - width) / 2;
 		top = (240 - height) / 2;
 	}
-	toBackbuffer = 1;
+	isUpsideDown = upsideDown;
+
+	buffer_width = bufWidth;
+	buffer_height = bufHeight;
+	buffer_size = bufWidth * bufHeight * 4;
+
 	if (isPacked) {
 		ccb_decode_packed_image(output, left, top);
 	} else {
@@ -400,7 +413,12 @@ image_data * shpm_image_convert(shpm_image * shpm, shpm_image * optional_plut) {
 		isShaded = 1; //FIXME
 		plut = optional_plut->data;
 	}
+
 	size = width * height * 4;
+	buffer_width = width;
+	buffer_height = height;
+	buffer_size = size;
+
 	output = (image_data *) malloc(size + 32);
 	if (output->rgba == 0) {
 		printf("shpm_image_convert: Can't malloc size %d!\n", output->size);
@@ -410,7 +428,7 @@ image_data * shpm_image_convert(shpm_image * shpm, shpm_image * optional_plut) {
 	output->width = width;
 	output->height = height;
 	output->size = size;
-	toBackbuffer = 0;
+	isUpsideDown = 0;
 	if (isPacked) {
 		ccb_decode_packed_image(output->rgba, 0, 0);
 	} else {
@@ -425,7 +443,12 @@ image_data * ccb_image_convert(ccb_chunk *ccb) {
 	if (!ccb_parse_header(ccb)) {
 		return 0;
 	}
+
 	size = width * height * 4;
+	buffer_width = width;
+	buffer_height = height;
+	buffer_size = size;
+
 	output = (image_data *) malloc(size + 32);
 	if (output->rgba == 0) {
 		printf("ccb_image_convert: Can't malloc size %d!\n", size);
@@ -435,7 +458,7 @@ image_data * ccb_image_convert(ccb_chunk *ccb) {
 	output->width = width;
 	output->height = height;
 	output->size = size;
-	toBackbuffer = 0;
+	isUpsideDown = 0;
 	if (isPacked) {
 		ccb_decode_packed_image(output->rgba, 0, 0);
 	} else {

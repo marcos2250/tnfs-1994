@@ -700,9 +700,9 @@ char * g_files[] = {
 			"frontend/display/credits/group.cel", //ccb packed
 			"frontend/display/credits/1.cel", //ccb packed palette
 			"DriveData/CarData/LDIABLO.s1", //ccb linear
-			"DriveData/CarData/TSupra.WrapFam", //shpm linear palette
+			"DriveData/CarData/MRX7.WrapFam", //shpm linear palette
 			"DriveData/CarData/CopMust.WrapFam",
-			"DriveData/CarData/MRX7.BigdashFam",
+			"DriveData/CarData/CZR1.BigdashFam",
 			"DriveData/DriveArt/SimCommonArt.Fam", //ccb packed palette no shade
 			"DriveData/DriveArt/warningt0.celFam", //ccb packed palette shade
 			"DriveData/DriveArt/Al1_PKT_000",

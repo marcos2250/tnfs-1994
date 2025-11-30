@@ -17,6 +17,8 @@ byte g_fontdata[4464];
 byte * g_filedata;
 int g_filesize = 0;
 
+unsigned int g_tex_count = 0;
+
 GLfloat matrix[16] = { 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1 };
 vector3f cam_orientation = { 0, 0, 0 };
 vector3f cam_position = { 0, 0, 0 };
@@ -110,14 +112,14 @@ void gfx_draw_shpm(shpm_image * shpm, int posX, int posY) {
 	if (!shpm_parse_header(shpm)) {
 		return;
 	}
-	ccb_draw_to_buffer((byte*) &g_backbuffer, posX, posY);
+	ccb_draw_to_buffer((byte*) &g_backbuffer, posX, posY, 320, 240, 1);
 }
 
 void gfx_draw_ccb(ccb_chunk *ccb, int left, int top) {
 	if (!ccb_parse_header(ccb)) {
 		return;
 	}
-	ccb_draw_to_buffer((byte*) &g_backbuffer, left, top);
+	ccb_draw_to_buffer((byte*) &g_backbuffer, left, top, 320, 240, 1);
 }
 
 void gfx_draw_3sh(char * file, char * label) {
@@ -247,7 +249,7 @@ void gfx_draw_text_9500(char *text, int x, int y) {
 
 // clear texture buffers
 void gfx_clear_buffers() {
-	int i = 1000;
+	unsigned int i = g_tex_count;
 	unsigned int texId = 0;
 	glBindTexture(GL_TEXTURE_2D, 0);
 	while (i--) {
@@ -268,6 +270,7 @@ int gfx_store_texture(image_data * image) {
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, image->width, image->height, 0, GL_RGBA, GL_UNSIGNED_BYTE, image->rgba);
+	if (texId > g_tex_count) g_tex_count = texId;
 	return texId;
 }
 
@@ -971,7 +974,9 @@ void gfx_draw_hud() {
 
 	// RPM needle
 	glBindTexture(GL_TEXTURE_2D, 0);
-	r = ((float) g_car_array[0].rpm_engine / (float) g_car_array[0].rpm_redline) * 2.5 - 1.56;
+	r = ((float) g_car_array[0].rpm_engine / (float) g_car_array[0].rpm_redline);
+	if (r > 1) r = 1;
+	r = r * 2.5 - 1.56;
 	c = -cosf(r);
 	s = sinf(r);
 	glMatrixMode(GL_MODELVIEW);
@@ -1008,8 +1013,17 @@ void gfx_draw_hud() {
 	glEnd();
 }
 
+// gear shift animation vars
+int shift_pos_x[8] = { 1, 0, -1, -1,  0, 0,  1, 1 };
+int shift_pos_y[8] = { 1, 0, -1, +1, -1, 1, -1, 1 };
+int shift_pos_x_dogleg[8] = { -1, 0, -1,  0, 0,  1,  1, 2 };
+int shift_pos_y_dogleg[8] = { -1, 0, +1, -1, 1, -1, +1, -1 };
+int knobX = 280;
+int knobY = 200;
+
 void gfx_draw_dashboard() {
 	float c,s,r;
+	int x,y;
 
 	if (g_dash_constants.num_panels == 0) {
 		return;
@@ -1023,12 +1037,35 @@ void gfx_draw_dashboard() {
 	glLoadIdentity();
 
 	// dash
-	gfx_drawSprite(0, 240, 320, 0, g_dash_texPkt[0]);
+	gfx_drawSprite(0, 0, 320, 240, g_dash_texPkt[0]);
+
+	// speedo needle
+	if (player_car_ptr->car_model_id != 3) { // CZR1 digital speedo
+		glBindTexture(GL_TEXTURE_2D, 0);
+		r = ((float) player_car_ptr->speed) / 0x100000 + g_dash_constants.gauge_idle_angle;
+		c = -cosf(r);
+		s = sinf(r);
+		glMatrixMode(GL_MODELVIEW);
+		matrix[0] = c; matrix[1] = -s; matrix[2] = 0; matrix[3] = 0;
+		matrix[4] = s; matrix[5] = c; matrix[6] = 0; matrix[7] = 0;
+		matrix[8] = 0; matrix[9] = 0; matrix[10] = 0; matrix[11] = 0;
+		matrix[12] = g_dash_constants.speedo_pos_x * SCREEN_SCALE; matrix[13] = g_dash_constants.speedo_pos_y * SCREEN_SCALE; matrix[14] = 0; matrix[15] = 1;
+		glLoadMatrixf(matrix);
+
+		glColor3f(0.9f, 0.3f, 0.1f);
+		glBegin(GL_TRIANGLE_STRIP);
+		glVertex3f(-1, 0, 0);
+		glVertex3f(+1, 0, 0);
+		glVertex3f(-1, g_dash_constants.gauge_needle_length * SCREEN_SCALE, 0);
+		glVertex3f(+1, g_dash_constants.gauge_needle_length * SCREEN_SCALE, 0);
+		glEnd();
+	}
 
 	// RPM needle
 	glBindTexture(GL_TEXTURE_2D, 0);
-	r = ((float) g_car_array[0].rpm_engine / (float) g_car_array[0].rpm_redline)
-			* g_dash_constants.tacho_rotate_factor + g_dash_constants.tacho_idle_angle;
+	r = ((float) player_car_ptr->rpm_engine / (float) player_car_ptr->rpm_redline);
+	if (r > 1) r = 1;
+	r = r * g_dash_constants.tacho_rotate_factor + g_dash_constants.gauge_idle_angle;
 	c = -cosf(r);
 	s = sinf(r);
 	glMatrixMode(GL_MODELVIEW);
@@ -1042,13 +1079,13 @@ void gfx_draw_dashboard() {
 	glBegin(GL_TRIANGLE_STRIP);
 	glVertex3f(-1, 0, 0);
 	glVertex3f(+1, 0, 0);
-	glVertex3f(-1, g_dash_constants.tacho_needle_length * SCREEN_SCALE, 0);
-	glVertex3f(+1, g_dash_constants.tacho_needle_length * SCREEN_SCALE, 0);
+	glVertex3f(-1, g_dash_constants.gauge_needle_length * SCREEN_SCALE, 0);
+	glVertex3f(+1, g_dash_constants.gauge_needle_length * SCREEN_SCALE, 0);
 	glEnd();
 
 	//steering wheel
 	glColor3f(1.0f, 1.0f, 1.0);
-	r = ((float) g_car_array[0].steer_angle) / 0x280000;
+	r = ((float) player_car_ptr->steer_angle) / 0x280000;
 	c = -cosf(r);
 	s = sinf(r);
 	glMatrixMode(GL_MODELVIEW);
@@ -1059,6 +1096,35 @@ void gfx_draw_dashboard() {
 	glLoadMatrixf(matrix);
 	gfx_drawSprite(-g_dash_constants.steer_size, g_dash_constants.steer_size, g_dash_constants.steer_size, -g_dash_constants.steer_size, g_dash_texPkt[1]);
 	glBindTexture(GL_TEXTURE_2D, 0);
+
+	// gear shift animation
+	if (player_car_ptr->gear_shift_interval) {
+		glLoadIdentity();
+
+		if (player_car_ptr->car_model_id == 4) { // F512TR dogleg
+			x = shift_pos_x_dogleg[player_car_ptr->gear_selected + 2];
+			y = shift_pos_y_dogleg[player_car_ptr->gear_selected + 2];
+		} else {
+			x = shift_pos_x[player_car_ptr->gear_selected + 2];
+			y = shift_pos_y[player_car_ptr->gear_selected + 2];
+		}
+
+		if (player_car_ptr->car_model_id == 1 || player_car_ptr->car_model_id == 4) {
+			// gated shifters
+			gfx_drawSprite(270, 190, 310, 230, g_dash_texPkt[3]);
+			knobX -= (knobX - (x * 10 + 280)) >> 1;
+			knobY -= (knobY - (y * 10 + 200)) >> 1;
+			gfx_drawSprite(knobX, knobY, knobX + 20, knobY + 20, g_dash_texPkt[2]);
+		} else {
+			// leather covered lever
+			gfx_drawSprite(270, 190, 310, 230, g_dash_texPkt[6]);
+			for (int i = 0; i < 4; i++) {
+				knobX -= (knobX - (x * i * 4 + 280)) >> 1;
+				knobY -= (knobY - (y * i * 4 + 200)) >> 1;
+				gfx_drawSprite(knobX, knobY, knobX + 20, knobY + 20, g_dash_texPkt[5 - i]);
+			}
+		}
+	}
 }
 
 void gfx_render_scene() {

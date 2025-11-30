@@ -29,7 +29,6 @@ typedef struct tnfs_carmodel3d {
 	int lt_rear;
 	int rt_frnt;
 	int lt_frnt;
-	int brakeTexId;
 	int copSirenLights[2];
 	int lrr0;
 	int lrl0;
@@ -166,8 +165,8 @@ typedef struct tnfs_car_specs {
 	 */
 	int roll_axis_height; //0x90
 
-	int front_roll_stiffness_inv; //0x94 unused
-	int rear_roll_stiffness_inv; //0x98 unused
+	int front_roll_stiffness_perc; //0x94 unused
+	int rear_roll_stiffness_perc; //0x98 unused
 	int weight_transfer_factor; //0x9c
 
 	/*
@@ -722,11 +721,13 @@ typedef struct tnfs_smoke_puff {
 typedef struct tnfs_dash_constants {
 	int num_panels; // Total number of Panels
 	tnfs_vec3 position[11]; // top left corner x/y relative to center
+	float speedo_pos_x;
+	float speedo_pos_y;
 	float tacho_pos_x;
 	float tacho_pos_y;
-	float tacho_idle_angle;
 	float tacho_rotate_factor;
-	float tacho_needle_length;
+	float gauge_idle_angle;
+	float gauge_needle_length;
 	float steer_pos_x;
 	float steer_pos_y;
 	float steer_size;

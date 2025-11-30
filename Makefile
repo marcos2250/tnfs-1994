@@ -30,7 +30,7 @@ clean:
 	mkdir -p build
 
 compile_debug:
-	$(CC) $(OBJS) $(INCL) $(LIBS) -O2 -g3 -Wall -o build/tnfs 
+	$(CC) $(OBJS) $(INCL) $(LIBS) -g3 -Wall -o build/tnfs 
 
 compile:
 	$(CC) $(OBJS) $(INCL) $(LIBS) -O2 -Wall -o build/tnfs 
