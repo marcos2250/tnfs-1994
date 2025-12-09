@@ -75,6 +75,11 @@ void tnfs_ai_init(int oppcarid) {
 
 		// load car basic specs
 		tnfs_ai_load_car(car, car->car_model_id);
+
+		// disable non player cars
+		if (i >= g_racer_cars_in_scene) {
+			car->field_4e9 = 0;
+		}
 	}
 }
 

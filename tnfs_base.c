@@ -59,6 +59,7 @@ int g_police_on_chase = 0; //000fdb90
 int g_police_speeding_ticket = 0; //0016513C
 int g_police_chase_time = 0; //0016533c
 int g_police_ticket_time = 0;
+int g_cop_radar_time = 0;
 
 tnfs_camera camera;
 int selected_camera = 0;
@@ -333,12 +334,6 @@ void tnfs_init_track(char *tri_file) {
 	    	}
 	    	sliceptr += 11;
 		}
-
-		// invisible polygons at tunnel entrances
-		if (track_data[i].item_mode != 4 && track_data[i + 4].item_mode == 4) {
-			g_terrain_texId[chunk * 10 + 4] = 0; //rightmost strip
-			g_terrain_texId[chunk * 10 + 9] = 0; //leftmost strip
-		}
 		
 		// draw tunnel wall as fences
 		if (track_data[i].item_mode == 7 || track_data[i].item_mode == 9) {
@@ -544,6 +539,9 @@ void tnfs_reset_car(tnfs_car_data *car) {
 		car->crash_state = 2;
 		car->ai_state = 0x1e0;
 		car->field_158 = 1;
+		if (g_cop_car_ptr != 0) {
+			g_cop_car_ptr->ai_state = 0x1e8;
+		}
 		g_police_on_chase = 0;
 		g_police_speeding_ticket = 0;
 		g_police_ticket_time = 0;
@@ -902,6 +900,7 @@ void tnfs_sfx_play(int a, int id1, int id2, int volume, int distance, int direct
 
 void sfx_update() {
 	float f = 0;
+	float v = 0;
 	tnfs_car_data * car;
 
 	car = camera.car_ptr_1;
@@ -941,7 +940,7 @@ void sfx_update() {
 	sfx_play_sound(11, 1, 0.25f, f);
 
 	// tire screeching
-	if (car->time_off_ground > 0 || car->is_crashed) {
+	if (car->time_off_ground > 0 || car->is_crashed || car->speed == 0) {
 		f = 0;
 	} else {
 		if (is_drifting) {
@@ -955,6 +954,17 @@ void sfx_update() {
 		}
 	}
 	sfx_play_sound(18, 1, f, f);
+
+	// cop radar detector
+	if (g_cop_car_ptr != 0 && g_cop_car_ptr->track_slice > 1) {
+		if (g_cop_radar_time < 0) {
+			g_cop_radar_time = abs(g_cop_car_ptr->track_slice - player_car_ptr->track_slice);
+			if (g_cop_radar_time < 40) {
+				sfx_play_sound(12, 0, 0.5f, 1);
+			}
+		}
+		g_cop_radar_time--;
+	}
 }
 
 /* common stub functions */
@@ -1343,7 +1353,7 @@ void tnfs_init_sim() {
 	int i;
 	char trkfile[80];
 
-	iSimTimeClock = 200;
+	iSimTimeClock = 0;
 	cheat_crashing_cars = 0;
 	g_game_settings = 0;
 	sound_flag = 0;
@@ -1458,15 +1468,22 @@ void tnfs_update() {
 	int i;
 	tnfs_car_data *car;
 
-	iSimTimeClock++;
-
-	if (g_race_status == 0 && player_car_ptr->car_road_speed > 0) {
-		g_race_status = 1;
-		tnfs_ai_respawn_00028cc4();
+	if (g_race_status == 0) {
+		if (player_car_ptr->car_road_speed > 0) {
+			//race start
+			g_race_status = 1;
+			tnfs_ai_respawn_00028cc4();
+		}
+	} else {
+		if (player_car_ptr->field_4c9 == 0) {
+			iSimTimeClock++;
+		}
 	}
-	//FIX: disable cop if crashed or finished race
+
+	//FIX: disable cop if finished or ran away
 	if (g_cop_car_ptr != 0) {
-		if (player_car_ptr->is_crashed || player_car_ptr->field_4c9) {
+		if (player_car_ptr->field_4c9 //
+				|| (g_cop_car_ptr->track_slice - player_car_ptr->track_slice) < -20) {
 			g_police_on_chase = 0;
 			g_cop_car_ptr->ai_state = 0x1e8;
 		}

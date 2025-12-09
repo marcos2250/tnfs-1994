@@ -908,7 +908,7 @@ int read_carmodel_file(char * carname, tnfs_carmodel3d * carmodel) {
 }
 
 
-int g_lod_sequence[12] = { 4, 8, 16, 20,   0, 12, 24, 32,  0, 12, 24, 32 };
+int g_lod_sequence[14] = { 4, 8, 16, 20,   0, 12, 24, 32,  0, 12, 24, 32,  0, 0 };
 
 /*
  * Read track PKT files
@@ -947,7 +947,7 @@ int read_track_pkt_file(char * trackname) {
 			wpath[1] = i;
 		}
 		k = 0;
-		for (j = 0; j < 12; j++) {
+		for (j = 0; j < 14; j++) {
 			if (k == 4) break;
 			wpath[2] = g_lod_sequence[j];
 			obj = read_wwww(filedata, wpath, 3);

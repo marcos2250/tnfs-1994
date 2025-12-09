@@ -77,6 +77,19 @@ void writepixel(byte * buffer, int *idx, int rgb, int shade) {
 		return;
 	}
 
+	//FIXME: 0xfc00 color -> transparent pixel?
+	if (isBgnd == 0 && rgb == 0xfc00) {
+		buffer[*idx] = shade << 5;
+		*idx += 1;
+		buffer[*idx] = shade << 5;
+		*idx += 1;
+		buffer[*idx] = shade << 5;
+		*idx += 1;
+		buffer[*idx] = shade < 4 ? 0 : 0xFF;
+		*idx += 1;
+		return;
+	}
+
 	if (shade) isShaded = 1; //FIXME detect if it's a shaded palette
 
 	if (isShaded) {

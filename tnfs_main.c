@@ -26,6 +26,7 @@ int g_keybuffer[8];
 int g_keybuffer_count = 0;
 char quit = 0;
 char isFrontEnd = 1;
+char g_free_mode = 0;
 
 /* Keyboard and Mouse inputs */
 
@@ -111,6 +112,9 @@ void handleKeys() {
 		case SDLK_F9:
 			tnfs_toggle_dash();
 			break;
+		case SDLK_F12:
+			g_free_mode = g_free_mode ? 0 : 1;
+			break;
 		default:
 			break;
 		}
@@ -190,6 +194,7 @@ void sys_sdl_loop_frontend() {
 }
 
 void tnfs_race_enter() {
+	float a;
 
 	gfx_clear_buffers();
 	sfx_clear_buffers();
@@ -208,6 +213,22 @@ void tnfs_race_enter() {
 				sys_sdl_exit();
 			}
 			handleKeys();
+		}
+
+		// free camera mode
+		if (g_free_mode) {
+			camera.orientation.x += (g_control_throttle - g_control_brake) * 0x10000;
+			camera.orientation.y += g_control_steer * 0x10000;
+			if (g_car_array[0].handbrake) {
+				a = ((float) camera.orientation.y) / 2670179.113f;
+				camera.position.x += sinf(a) * 0x10000;
+				camera.position.z += cosf(a) * 0x10000;
+				a = ((float) camera.orientation.x) / 2670179.113f;
+				camera.position.y -= sinf(a) * 0x10000;
+			}
+			gfx_update();
+			SDL_Delay(30);
+			continue;
 		}
 
 		if (player_car_ptr->field_4c9 > 150) {

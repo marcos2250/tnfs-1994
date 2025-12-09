@@ -123,16 +123,16 @@ void gfx_draw_ccb(ccb_chunk *ccb, int left, int top) {
 }
 
 void gfx_draw_3sh(char * file, char * label) {
+	gfx_clear();
 	g_filedata = openFileBuffer(file, &g_filesize);
 	g_shape = gfx_locateshape(g_filedata, label);
 	gfx_draw_shpm(g_shape, 0, 0);
 }
 
 void gfx_draw_cel(char * file) { 
-	int filesize;
-	byte * filedata;
-	filedata = openFileBuffer(file, &filesize);
-	gfx_draw_ccb((ccb_chunk*) filedata, 0, 0);
+	gfx_clear();
+	g_filedata = openFileBuffer(file, &g_filesize);
+	gfx_draw_ccb((ccb_chunk*) g_filedata, 0, 0);
 }
 
 void gfx_drawshape_94f4() {
@@ -370,7 +370,7 @@ void gfx_drawSmoke() {
 		w = (smoke->time / 256);
 		glColor4f(1.0f, 1.0f, 1.0f, 0.1f);
 		glDisable(GL_DEPTH_TEST);
-		glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+		glPolygonMode(GL_FRONT, GL_FILL);
 
 		w = 3 - (w * 2);
 		glBindTexture(GL_TEXTURE_2D, g_smoke_texPkt[smoke->texId]);
@@ -566,7 +566,7 @@ void gfx_drawVehicle(tnfs_car_data * car) {
 	carModel = &g_carmodels[car->car_model_id];
 	glColor3f(1.0f, 1.0f, 1.0);
 	glEnable(GL_DEPTH_TEST);
-	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+	glPolygonMode(GL_FRONT, GL_FILL);
 
 	for (i = 0; i < carModel->model.numPolys; i++) {
 		poly = &carModel->model.mesh[i];
@@ -930,14 +930,14 @@ void gfx_drawSprite(int x1, int y1, int x2, int y2, int texId) {
 }
 
 void gfx_drawHudDigit(int x, int y, int n) {
-	int x2 = x + 4;
+	int x2 = x + 3;
 	int y2 = y + 5;
 	gfx_drawSprite(x, y, x2, y2, g_hud_texPkt[n]);
 }
 
 void gfx_draw_hud() {
 	float c,s,r;
-	int speed;
+	int v;
 
 	glMatrixMode(GL_PROJECTION);
 	glLoadIdentity();
@@ -957,20 +957,29 @@ void gfx_draw_hud() {
 	int gear = player_car_ptr->gear_selected + 1;
 	if (gear == -1) gear = 11;
 	if (gear == 0) gear = 10;
-	gfx_drawHudDigit(81, 200, gear);
+	gfx_drawHudDigit(82, 200, gear);
 
 	// speed
-	speed = (player_car_ptr->speed >> 16) * 2.23694f; //to MPH
-	gfx_drawHudDigit(76, 211, speed % 10);
-	if (speed > 9)  gfx_drawHudDigit(71, 211, (speed / 10) % 10);
-	if (speed > 99) gfx_drawHudDigit(66, 211, (speed / 100) % 10);
+	v = (player_car_ptr->speed >> 16) * 2.23694f; //to MPH
+	gfx_drawHudDigit(76, 211, v % 10);
+	if (v > 9)  gfx_drawHudDigit(72, 211, (v / 10) % 10);
+	if (v > 99) gfx_drawHudDigit(68, 211, (v / 100) % 10);
 
 	// track slice
-	speed = player_car_ptr->track_slice;
-	gfx_drawHudDigit(22, 4, speed % 10);
-	gfx_drawHudDigit(16, 4, (speed / 10) % 10);
-	gfx_drawHudDigit(10, 4, (speed / 100) % 10);
-	gfx_drawHudDigit( 4, 4, (speed / 1000) % 10);
+	v = player_car_ptr->track_slice;
+	gfx_drawHudDigit(19, 4, v % 10);
+	gfx_drawHudDigit(14, 4, (v / 10) % 10);
+	gfx_drawHudDigit( 9, 4, (v / 100) % 10);
+	gfx_drawHudDigit( 4, 4, (v / 1000) % 10);
+
+	// time
+	v = (iSimTimeClock / 3) % 600;
+	gfx_drawHudDigit(56, 211, v % 10);
+	gfx_drawHudDigit(50, 211, (v / 10) % 10);
+	gfx_drawHudDigit(46, 211, (v / 100) % 10);
+	v = iSimTimeClock / 1800;
+	gfx_drawHudDigit(40, 211, v % 10);
+	gfx_drawHudDigit(36, 211, (v / 10) % 10);
 
 	// RPM needle
 	glBindTexture(GL_TEXTURE_2D, 0);
