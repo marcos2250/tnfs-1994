@@ -16,8 +16,20 @@ Missing features: FMV playback, Replays and Highlights, Best times records save.
 1. clone/download repo
 2. install `libsdl2-dev`
 3. `make`
-4. extract disc contents: `DriveData` and `frontend` folders, to the project's `assets` folder
+4. extract disc contents: `DriveData` and `frontend` folders, to the project's `assets` folder. Recommended tool: [3dt](https://github.com/trapexit/3dt)
 5. run `./build/tnfs`
+
+Use the keys to drive:
+* Up/Down - Accel and brake
+* Left/Right - Steer
+* Space - Handbrake
+* A/Z - Change gears
+* C - Change camera
+* H - Horn
+* D - Crash cars
+* R - Reset car
+* F9 - Toggle dashboard
+* F12 - Free camera/viewing mode
 
 ## Resources/Tools used
 * https://3dodev.com/documentation/file_formats/games/nfs

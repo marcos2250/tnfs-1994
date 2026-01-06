@@ -30,6 +30,8 @@ void tnfs_ai_init(int oppcarid) {
 	int i;
     tnfs_car_data *car;
 
+    g_cop_car_ptr = 0;
+
 	for (i = g_number_of_players; i < g_total_cars_in_scene; i++) {
 
 		// car model
@@ -129,7 +131,7 @@ void tnfs_ai_load_car(tnfs_car_data *car, int newCarModelId) {
 	// gear ratios
 	for (j = 0; j < 6; j++) {
 		if (car->top_speed_per_gear[j] != 0) {
-			car->ai_gear_ratios[0] = (int)(0x100000000L / car->top_speed_per_gear[j]);
+			car->ai_gear_ratios[0] = (int)((long long)0x100000000L / car->top_speed_per_gear[j]);
 		}
 	}
 

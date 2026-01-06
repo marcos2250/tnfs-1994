@@ -401,7 +401,7 @@ void gfx_drawShadows() {
 	glColor4f(0.0f, 0.0f, 0.0, 0.3f);
 	glPolygonMode(GL_FRONT, GL_FILL);
 
-	for (i = 0; i < 8; i++) {
+	for (i = 0; i < g_total_cars_in_scene; i++) {
 		car = &g_car_array[i];
 		if (i == 0 && camera.id == 0) {
 			continue;
@@ -1032,7 +1032,7 @@ int knobY = 200;
 
 void gfx_draw_dashboard() {
 	float c,s,r;
-	int x,y;
+	int x,y,i;
 
 	if (g_dash_constants.num_panels == 0) {
 		return;
@@ -1044,6 +1044,7 @@ void gfx_draw_dashboard() {
 	glPolygonMode(GL_FRONT, GL_FILL);
 	glMatrixMode(GL_MODELVIEW);
 	glLoadIdentity();
+	glColor4f(1, 1, 1, 1);
 
 	// dash
 	gfx_drawSprite(0, 0, 320, 240, g_dash_texPkt[0]);
@@ -1127,7 +1128,7 @@ void gfx_draw_dashboard() {
 		} else {
 			// leather covered lever
 			gfx_drawSprite(270, 190, 310, 230, g_dash_texPkt[6]);
-			for (int i = 0; i < 4; i++) {
+			for (i = 0; i < 4; i++) {
 				knobX -= (knobX - (x * i * 4 + 280)) >> 1;
 				knobY -= (knobY - (y * i * 4 + 200)) >> 1;
 				gfx_drawSprite(knobX, knobY, knobX + 20, knobY + 20, g_dash_texPkt[5 - i]);

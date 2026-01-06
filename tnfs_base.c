@@ -784,73 +784,6 @@ void tnfs_change_gear_down() {
 
 /* additional features */
 
-void tnfs_abs() {
-	if (g_car_array[0].abs_enabled) {
-		g_car_array[0].abs_enabled = 0;
-		printf("ABS brakes off\n");
-	} else {
-		g_car_array[0].abs_enabled = 1;
-		printf("ABS brakes on\n");
-	}
-}
-
-void tnfs_tcs() {
-	if (g_car_array[0].tcs_enabled) {
-		g_car_array[0].tcs_enabled = 0;
-		printf("Traction control off\n");
-	} else {
-		g_car_array[0].tcs_enabled = 1;
-		printf("Traction control on\n");
-	}
-}
-
-void tnfs_change_transmission_type() {
-	if (g_car_array[0].gear_auto_selected == 0) {
-		printf("Automatic Transmission mode\n");
-		g_car_array[0].gear_auto_selected = 2;
-		tnfs_change_gear_automatic(0);
-	} else {
-		printf("Manual Transmission mode\n");
-		g_car_array[0].gear_auto_selected = 0;
-		tnfs_change_gear_manual(0);
-	}
-}
-
-void tnfs_change_traction() {
-	if (g_car_array[0].car_specs_ptr->front_drive_percentage == 0x8000) {
-		g_car_array[0].car_specs_ptr->front_drive_percentage = 0x10000;
-		printf("Traction: FWD\n");
-	} else if (g_car_array[0].car_specs_ptr->front_drive_percentage == 0) {
-		g_car_array[0].car_specs_ptr->front_drive_percentage = 0x8000;
-		printf("Traction: AWD\n");
-	} else {
-		g_car_array[0].car_specs_ptr->front_drive_percentage = 0;
-		printf("Traction: RWD\n");
-	}
-}
-
-void tnfs_cheat_mode() {
-	g_selected_cheat++;
-	cheat_crashing_cars = 0;
-	g_game_settings = 0;
-
-	if (g_selected_cheat > 2) {
-		g_selected_cheat = 0;
-		printf("No easter egg active.\n");
-	}
-	if (g_selected_cheat == 1) {
-		cheat_crashing_cars = 4;
-		printf("Cheat mode: Crashing cars - Press handbrake to crash\n");
-	}
-	if (g_selected_cheat == 2) {
-		printf("Cheat mode: Rally Mode\n");
-		g_game_settings = 0x20;
-	}
-
-	tnfs_init_car();
-	tnfs_reset_car(g_car_ptr_array[0]);
-}
-
 void tnfs_toggle_dash() {
 	g_dash_enabled = g_dash_enabled ? 0 : 1;
 }
@@ -900,7 +833,7 @@ void tnfs_sfx_play(int a, int id1, int id2, int volume, int distance, int direct
 
 void sfx_update() {
 	float f = 0;
-	float v = 0;
+
 	tnfs_car_data * car;
 
 	car = camera.car_ptr_1;
@@ -1456,6 +1389,13 @@ void tnfs_init_sim() {
 			g_car_array[0].position.x -= 0x20000;
 			g_car_array[1].position.x += 0x20000;
 		}
+	}
+
+	// auto/manual transmission
+	if (g_config.skill_level == 2 || g_config.skill_level == 5) {
+		g_car_array[0].gear_auto_selected = 0;
+	} else {
+		g_car_array[0].gear_auto_selected = 2;
 	}
 
 	tnfs_camera_init();

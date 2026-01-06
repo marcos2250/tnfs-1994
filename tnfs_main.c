@@ -94,26 +94,12 @@ void handleKeys() {
 		case SDLK_h:
 			sfx_play_sound(5, 1, 0.25f, 1);
 			break;
-		case SDLK_F1:
-			tnfs_abs();
-			break;
-		case SDLK_F2:
-			tnfs_tcs();
-			break;
-		case SDLK_F3:
-			tnfs_change_traction();
-			break;
-		case SDLK_F4:
-			tnfs_change_transmission_type();
-			break;
-		case SDLK_F5:
-			tnfs_cheat_mode();
-			break;
 		case SDLK_F9:
 			tnfs_toggle_dash();
 			break;
 		case SDLK_F12:
 			g_free_mode = g_free_mode ? 0 : 1;
+			SDL_PauseAudioDevice(audioDevice, g_free_mode);
 			break;
 		default:
 			break;
@@ -641,7 +627,7 @@ void tnfs_menu_control() {
 			toggle(&option, 4, -1);
 			break;
 		case SDLK_RETURN:
-			sfx_play_sound(1, 0, 1, 1);
+			sfx_play_sound(1, 0, 0.5f, 1);
 			if (option == 0)
 				tnfs_menu_drive_start();
 			if (option == 1)
@@ -718,6 +704,7 @@ char * g_files[] = {
 			"frontend/display/pioneer.3sh", //shpm linear
 			"frontend/display/TITLE.3SH", //shpm packed
 			"frontend/display/ctrlcars.3sh", //shpm packed
+			"frontend/display/options.3sh", //
 			"frontend/display/credits/group.cel", //ccb packed
 			"frontend/display/credits/1.cel", //ccb packed palette
 			"DriveData/CarData/LDIABLO.s1", //ccb linear
@@ -783,6 +770,7 @@ void fileView_scan_file(int id) {
 	printf("found %d objects.\n", texCount);
 	objectSel = 0;
 	fileView_drawImage(fileView_data, objectIds[0]);
+	gfx_draw_text_9500(g_files[id], 10, 10);
 }
 
 void fileView_seekImage(int * pos, int direction) {
@@ -830,7 +818,7 @@ void fileView_sfx_screen(int id) {
 
 void fileViewer_main() {
 	int pos = 0;
-	int id = 11;
+	int id = 12;
 	int fileView_count = 20;
 	fileView_scan_file(id);
 

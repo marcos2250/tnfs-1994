@@ -202,7 +202,7 @@ void math_matrix_multiply(tnfs_vec9 *result, tnfs_vec9 *m2, tnfs_vec9 *m1) {
 int math_inverse_value(int v) {
 	if (v == 0)
 		return 0;
-	return (int)(0x100000000L / v);
+	return (int)((long long)0x100000000L / v);
 }
 
 /*
