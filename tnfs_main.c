@@ -6,7 +6,6 @@
 #include <SDL_opengl.h>
 #include <SDL_audio.h>
 #include <GL/gl.h>
-#include <GL/glu.h>
 #include "tnfs_math.h"
 #include "tnfs_base.h"
 #include "tnfs_files.h"
@@ -148,10 +147,6 @@ void sys_sdl_exit() {
 
 /* Sim Mode */
 void gfx_update() {
-	glMatrixMode(GL_PROJECTION);
-	glLoadIdentity();
-	gluPerspective(50.0, 1.38, 0.1, 1000);
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	gfx_render_scene();
 	SDL_GL_SwapWindow(window);
 }

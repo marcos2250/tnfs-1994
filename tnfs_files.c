@@ -10,6 +10,8 @@
 #include "tnfs_files.h"
 #include "tnfs_gfx.h"
 
+#pragma GCC diagnostic ignored "-Wunused-result"
+
 struct file_assets g_file_assets[50];
 int file_counter = 0;
 
@@ -1006,16 +1008,20 @@ int read_track_pkt_file(char * trackname) {
 }
 
 
-void read_dash_constants(char * carname) {
+void read_dash_constants(char *carname) {
 	FILE *ptr;
 	int i;
 	char auxstr[120];
 	int align_bottom = 0;
+	float scaleX, scaleY;
+
+	scaleX = 320.0f / 340.0f;
+	scaleY = 240.0f / 260.0f;
 
 	g_dash_constants.num_panels = 0;
 
 	sprintf(auxstr, "assets/DriveData/CarData/%s.dashConstants", carname);
-	ptr = fopen(auxstr,"r");
+	ptr = fopen(auxstr, "r");
 	if (!ptr) {
 		printf("File not found: %s\n", auxstr);
 		return;
@@ -1043,21 +1049,26 @@ void read_dash_constants(char * carname) {
 		readTxtSkipLine(ptr);
 	}
 
-	for (i = 0; i < 100; i++) {
-		readTxtLine((char*)&auxstr, 120, ptr);
-		if (strncmp((char*)&auxstr, "SPEEDO", 5) == 0) {
+	for (i = 0; i < 300; i++) {
+		readTxtLine((char*) &auxstr, 120, ptr);
+		if (strncmp((char*) &auxstr, "SPEEDO", 5) == 0) {
 			readTxtSkipLine(ptr);
 			readTxtSkipLine(ptr);
 			readTxtSkipLine(ptr);
 			readTxtSkipLine(ptr);
-			g_dash_constants.speedo_pos_x = ((float) readTxtInt(ptr)) * 0.9 + 160;
+			g_dash_constants.speedo_pos_x = (readTxtInt(ptr) + 170) * scaleX;
 			readTxtSkipLine(ptr);
-			g_dash_constants.speedo_pos_y = ((float) readTxtInt(ptr)) * 0.9 + 220 + align_bottom;
+			g_dash_constants.speedo_pos_y = readTxtInt(ptr) * 0.9f + 220 + align_bottom;
 		}
-		if (strncmp((char*)&auxstr, "TACHO", 5) == 0) {
-			g_dash_constants.tacho_pos_x = ((float) readTxtInt(ptr)) * 0.9 + 160;
+		if (strncmp((char*) &auxstr, "TACHO", 5) == 0) {
+			g_dash_constants.tacho_pos_x = (readTxtInt(ptr) + 170) * scaleX;
 			readTxtSkipLine(ptr);
-			g_dash_constants.tacho_pos_y = ((float) readTxtInt(ptr)) * 0.9 + 220 + align_bottom;
+			g_dash_constants.tacho_pos_y = readTxtInt(ptr) * 0.9f + 220 + align_bottom;
+		}
+		if (strncmp((char*) &auxstr, "REAR VIEW", 9) == 0) {
+			g_dash_constants.rear_view[0] = (readTxtInt(ptr) + 170) * scaleX;
+			readTxtSkipLine(ptr);
+			g_dash_constants.rear_view[1] = (260 - (readTxtInt(ptr) + 240)) * scaleY - 25 - align_bottom;
 			break;
 		}
 	}

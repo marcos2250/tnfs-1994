@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <math.h>
 #include <GL/gl.h>
+#include <GL/glu.h>
 #include "tnfs_gfx.h"
 #include "tnfs_base.h"
 #include "tnfs_files.h"
@@ -623,6 +624,7 @@ void gfx_drawHorizon() {
 	} else {
 		glClearColor(0.05f, 0.2f, 0.5f, 1.0f); //blue
 	}
+	glClear(GL_COLOR_BUFFER_BIT);
 
 	glMatrixMode(GL_MODELVIEW);
 	glLoadIdentity();
@@ -775,7 +777,7 @@ void gfx_drawObject(tnfs_scenery_object * object) {
 	glBindTexture(GL_TEXTURE_2D, 0);
 }
 
-void gfx_drawRoad() {
+void gfx_drawRoad(int isMirror) {
 	int x;
 	int p1, p2;
 	int chunk, strip, slice, texture;
@@ -798,8 +800,13 @@ void gfx_drawRoad() {
 	glPolygonMode(GL_FRONT, GL_FILL);
 
 	// terrain
-	chunk = (camera.track_slice >> 2) + 19;
-	count = 20;
+	if (isMirror) {
+		chunk = (camera.track_slice >> 2) + 1;
+		count = 4;
+	} else {
+		chunk = (camera.track_slice >> 2) + 19;
+		count = 20;
+	}
 	while(count--) {
 		for (strip = 0; strip < 10; strip++) {
 			texture = g_terrain_texId[chunk * 10 + strip];
@@ -836,8 +843,13 @@ void gfx_drawRoad() {
 	}
 
 	// fences/tunnel wall
-	chunk = (camera.track_slice >> 2) + 9;
-	count = 10;
+	if (isMirror) {
+		chunk = (camera.track_slice >> 2) + 1;
+		count = 4;
+	} else {
+		chunk = (camera.track_slice >> 2) + 9;
+		count = 10;
+	}
 	while (count--) {
 		p1 = chunk * 4;
 		p2 = p1 + 1;
@@ -1137,6 +1149,38 @@ void gfx_draw_dashboard() {
 	}
 }
 
+void gfx_rear_view_mirror() {
+	int i = 0;
+
+	glMatrixMode(GL_PROJECTION);
+	glLoadIdentity();
+	gluPerspective(50.0, -1.38, 0.1, 1000);
+	glClear(GL_DEPTH_BUFFER_BIT);
+	glViewport(g_dash_constants.rear_view[0] * SCREEN_SCALE, g_dash_constants.rear_view[1] * SCREEN_SCALE,
+			g_dash_constants.rear_view[2] * SCREEN_SCALE, g_dash_constants.rear_view[3] * SCREEN_SCALE);
+	glScissor(g_dash_constants.rear_view[0] * SCREEN_SCALE, g_dash_constants.rear_view[1] * SCREEN_SCALE,
+			g_dash_constants.rear_view[2] * SCREEN_SCALE, g_dash_constants.rear_view[3] * SCREEN_SCALE);
+	glEnable(GL_SCISSOR_TEST);
+
+	cam_orientation.y += 180;
+
+	glDisable(GL_DEPTH_TEST);
+	gfx_drawHorizon();
+	gfx_drawRoad(1);
+
+	for (i = 0; i < g_total_cars_in_scene; i++) {
+		if ((g_car_ptr_array[i]->field_4e9 & 4) == 0) {
+			continue; //disabled car
+		}
+		if ((camera.id == 0) && (i == 0)) {
+			continue; // player's in car camera
+		}
+		gfx_drawVehicle(g_car_ptr_array[i]);
+	}
+
+	glDisable(GL_SCISSOR_TEST);
+}
+
 void gfx_render_scene() {
 	int i;
 
@@ -1148,9 +1192,15 @@ void gfx_render_scene() {
 	cam_position.y = ((float) -camera.position.y) / 0x10000;
 	cam_position.z = ((float) camera.position.z) / 0x10000;
 
+	glMatrixMode(GL_PROJECTION);
+	glLoadIdentity();
+	glViewport(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
+	gluPerspective(50.0, 1.38, 0.1, 1000);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
 	gfx_drawHorizon();
 	glEnable(GL_DEPTH_TEST);
-	gfx_drawRoad();
+	gfx_drawRoad(0);
 	glDisable(GL_DEPTH_TEST);
 	gfx_drawShadows();
 
@@ -1167,6 +1217,13 @@ void gfx_render_scene() {
 
 	gfx_drawSmoke();
 
+	if (camera.id == 0 && g_dash_enabled) {
+		gfx_rear_view_mirror();
+	}
+
+	glViewport(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
+	gluPerspective(90.0, 1.0, 0.1, 10);
+	glClear(GL_DEPTH_BUFFER_BIT);
 	glDisable(GL_DEPTH_TEST);
 	if (camera.id == 0 && g_dash_enabled) {
 		gfx_draw_dashboard();

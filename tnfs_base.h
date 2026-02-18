@@ -731,7 +731,7 @@ typedef struct tnfs_dash_constants {
 	float steer_pos_x;
 	float steer_pos_y;
 	float steer_size;
-	// ...
+	float rear_view[4];
 } tnfs_dash_constants;
 
 // global variables

@@ -1350,6 +1350,8 @@ void tnfs_init_sim() {
 	g_dash_constants.steer_pos_x = 160;
 	g_dash_constants.steer_pos_y = 210;
 	g_dash_constants.steer_size = 88;
+	g_dash_constants.rear_view[2] = 60;
+	g_dash_constants.rear_view[3] = 22;
 
 
 	// common art
