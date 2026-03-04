@@ -37,7 +37,7 @@ void tnfs_collision_rotate(tnfs_car_data *car_data, int angle, int lon_speed, in
 	if (rotAngle > 0x1000000)
 		rotAngle -= 0x1000000;
 
-	if (lon_speed >= 0x180000 && car_data->speed > 0x230000) {
+	if (lon_speed >= 0x100000 && car_data->speed > 0x200000) {
 		crash_speed_a = lon_speed - 0x60000;
 		if (rotAngle >= 0x800000)
 			rotSide = 0x1000000 - fix3(0x1000000 - rotAngle);
@@ -184,9 +184,9 @@ void tnfs_track_fence_collision(tnfs_car_data *car_data) {
 			if (car_data->car_id2 == 0) {
 				if (selected_camera == 0) {
 					if (distance <= 0)
-						sfxA = 0x280000; //left channel
+						sfxA = 0x280000; //left fence
 					else
-						sfxA = 0xd70000; //right channel
+						sfxA = 0xd70000; //right fence
 					sfxB = 1;
 				} else {
 					tnfs_car_local_position_vector(car_data, &sfxA, &sfxB);

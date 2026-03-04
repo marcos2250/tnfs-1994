@@ -637,8 +637,6 @@ int read_tddyn_file(char *carname, tnfs_car_data *car) {
 		car->power_curve[i] = readTxtDecimal(ptr);
 	}
 
-	car->field_168 = 0x120000;
-	car->field_170 = 0x10000;
 	car->pdn_max_rpm = 9000;
 	car->pdn_number_of_gears = 6;
 
@@ -654,6 +652,8 @@ int read_skill_file(int skill) {
 	FILE *ptr;
 	char file[80];
 	int i;
+
+	skill &= 2;
 
 	sprintf(file, "assets/DriveData/skills.%d", skill);
 	ptr = fopen(file,"r");
@@ -694,7 +694,7 @@ int read_skill_file(int skill) {
 	g_ai_skill_cfg.lane_slack[3] = readTxtDecimal(ptr);
 
 	for (i = 0; i < 20; i++) {
-		g_ai_skill_cfg.opponent_glue_0[i] = readTxtDecimal(ptr);
+		g_ai_skill_cfg.opponent_glue_factors[i] = readTxtDecimal(ptr);
 	}
 
 	//constants

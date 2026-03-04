@@ -122,7 +122,9 @@ void tnfs_ai_load_car(tnfs_car_data *car, int newCarModelId) {
 	car->car_length = car->collision_data.size.z * 2;
 
 	// derived values
-	car->field_16c = math_div(0x10000, car->field_168);
+	car->handling_factor_inv[0] = math_div(0x10000, car->handling_factor[0]);
+	car->handling_factor_inv[1] = math_div(0x10000, car->handling_factor[1]);
+	car->handling_factor_inv[2] = math_div(0x10000, car->handling_factor[2]);
 	car->collision_data.angular_acc_factor = math_inverse_value(car->collision_data.moment_of_inertia);
 	car->collision_data.linear_acc_factor = math_inverse_value(car->collision_data.mass);
 	car->collision_height_offset = car->collision_data.size.y;
@@ -165,12 +167,13 @@ int g_traffic_speeds[] = {
 
 int tnfs_ai_racer_speed(tnfs_car_data *car) {
 	int top_speed;
+	int speed_factor;
 	int iVar2;
-	int iVar3;
-	//int powerIndex;
+	int glue_factor;
 	int result_speed;
-	//int uVar4;
+	int skill;
 	int node;
+	int r0, r1, r6; //, r2, r3, r4, r6, r8, r9, r12;
 
 	if ((car->ai_state & 4) == 0) {
 		result_speed = g_track_speed[car->track_slice >> 2].top_speed << 0x10;
@@ -180,24 +183,22 @@ int tnfs_ai_racer_speed(tnfs_car_data *car) {
 		return math_mul(result_speed, g_traffic_speeds[g_config.skill_level * 8 + PTR_DAT_0002ab6c]);
 	}
 
-	//FIXME quirk
-	if (car->track_slice > g_road_finish_node) {
-		return 0;
-	}
-	return g_track_speed[car->track_slice >> 2].top_speed << 0x10;
-
-	//FIXME entire function
 	node = car->track_slice;
-	top_speed = g_track_speed[node >> 2].top_speed * 0x10000;
-	//powerIndex = g_config.skill_level;
+	top_speed = g_track_speed[node >> 2].top_speed << 0x10;
 
-	DAT_00165328 = (track_data[node].heading | (track_data[node].slant << 0x18)) * 0x400
-				 - (track_data[node + 1].heading | (track_data[node + 1].slant << 0x18)) * -0x400;
+	skill = g_config.skill_level & 2;
+	speed_factor = car->speed_factor[skill];
+
+	DAT_00165328 = ((track_data[node].heading | (track_data[node].slant << 0x18)) >> 0x10) * 0x400
+				 + ((track_data[node + 1].heading | (track_data[node + 1].slant << 0x18)) >> 0x10) * -0x400;
+	if (DAT_00165328 < 0) {
+		DAT_00165328 = 0;
+	}
 	if (DAT_00165328 >= 0x800000) {
 		DAT_00165328 = 0x1000000 - DAT_00165328;
 	}
 
-	iVar2 = math_mul(car->field_168 - DAT_00165328, car->field_16c);
+	iVar2 = ((car->handling_factor[skill] - DAT_00165328) >> 8) * (car->handling_factor_inv[skill] >> 8);
 	iVar2 = (iVar2 >> 3) + (iVar2 >> 4) + (iVar2 >> 6);
 
 	DAT_00165330 = (node - player_car_ptr->track_slice_lap) / 10 + 10;
@@ -208,30 +209,84 @@ int tnfs_ai_racer_speed(tnfs_car_data *car) {
 		DAT_00165330 = 0x14;
 	}
 
-	iVar3 = g_ai_skill_cfg.opponent_glue_0[DAT_00165330];
-	iVar2 = (iVar2 + 0xcccc) >> 8;
+	glue_factor = g_ai_skill_cfg.opponent_glue_factors[DAT_00165330];
 
 	if (((player_car_ptr->speed < 0x20000) && (player_car_ptr->crash_state == 2)) //
 			|| ((node < player_car_ptr->track_slice_lap) //
 			&& (player_car_ptr->crash_state == 4) //
-			&& (0x10000 < iVar3))) {
-		iVar3 = 0x10000;
-	} else if (iVar3 < 0x10000) {
-		//FIXME ???
-		//iVar2 = (car->power_curve[iVar3 - 4] >> 8) * ((iVar3 >> 8) * iVar2 >> 8);
-		iVar3 = 0x10000;
+			&& (glue_factor > 0x10000))) {
+		glue_factor = 0x10000;
 	}
 
-	iVar2 = (iVar2 >> 8) * (top_speed >> 8);
-	if (node <= player_car_ptr->track_slice) {
-		return iVar2;
-	}
+	/*
+	r0 = glue_factor;
+	r1 = 0x14;
+	r4 = node;
+	r6 = glue_factor + 0xcccc;
+	r8 = speed_factor;
+	r9 = top_speed;
 
-	iVar3 = (0x14 - (node - player_car_ptr->track_slice)) * 0xccc;
-	if (iVar3 < 0) {
-		iVar3 = 0;
+	//LAB_0002ab80:
+	if (r0 >= 0x10000)		// cmp r0,#0x10000
+		goto LAB_0002aba4;	// bge LAB_0002aba4
+
+	r2 = r6 >> 8; 	// mov r2,r6, asr #0x8
+	r0 = r0 >> 8; 	// mov r0,r0, asr #0x8
+	r2 = r0 * r2; 	// mul r2,r0,r2
+
+	r0 = r2 >> 8; 	// mov r0,r2, asr #0x8
+	r2 = r8 >> 8; 	// mov r2,r8, asr #0x8
+	r0 = r2 * r0; 	// mul r0,r2,r0
+	goto LAB_0002abb0;	// b LAB_0002abb0
+
+	LAB_0002aba4:
+	r2 = r6 >> 8;	// mov r2,r6, asr #0x8
+	r0 = r0 >> 8;	// mov r0,r0, asr #0x8
+	r0 = r2 * r0;	// mul r0,r2,r0
+
+	LAB_0002abb0:
+	r2 = r9 >> 8; 	// mov r2,r9, asr #0x8
+	r3 = r0 >> 8;	// mov r3,r0, asr #0x8
+	r0 = r3 * r2;	// mul r0,r3,r2
+
+	r2 = player_car_ptr->track_slice;	// ldr r2,[0x2a578]
+	r2 = player_car_ptr->track_slice;	// ldr r2,[r2,#0x0]
+	if (r4 <= r2) 	// cmp r4,r2
+		return r0;	// ldmdble r11,{r4,r5,r6,r7,r8,r9,r11,sp,pc}
+
+	r2 = r4 - r2;	// sub r2,r4,r2
+	r1 = r1 - r2;	// sub r1,r1,r2
+	r12 = r1 + (r1 << 2);	// add r12,r1,r1, lsl #0x2
+	r1 = r12 + (r1 << 3);	// add r1,r12,r1, lsl #0x3
+	r1 = (r1 << 6) - r1;	// rsb r1,r1,r1, lsl #0x6
+	r1 = r1 << 2;		// movs r1,r1, lsl #0x2
+	if (r1 < 0) r1 = 0;	// movmi r1,#0x0
+
+	r0 = r0 >> 8;		// mov r0,r0, asr #0x8
+	r1 = r1 >> 8;		// mov r1,r1, asr #0x8
+	r0 = r0 * r1;		// mul r0,r1,r0
+	*/
+
+	r6 = glue_factor + 0xcccc;
+	if (glue_factor < 0x10000) {
+		r0 = fixmul(fixmul(r6, glue_factor), speed_factor);
+	} else {
+		r0 = fixmul(r6, glue_factor);
 	}
-	return (iVar3 >> 8) * (iVar2 >> 8);
+	r0 = fixmul(top_speed, r0);
+
+	if (node <= player_car_ptr->track_slice)
+		return r0;
+
+	r1 = 0x14 - (node - player_car_ptr->track_slice);
+	r1 *= 0xccc;
+
+	if (r1 < 0)
+		r1 = 0;
+
+	r0 = fixmul(r0, r1);
+
+	return r0;
 }
 
 void tnfs_ai_police_reset_state(int flag) {
@@ -2072,6 +2127,10 @@ void tnfs_ai_opp_engine_and_cornering(tnfs_car_data *car, int lane, tnfs_vec3 *d
 	//...
 }
 
+void FUN_00026954() {
+	// stub
+}
+
 void tnfs_ai_lane_change() {
 	int local_c0;
 	tnfs_vec3 car_speed_b;
@@ -2099,6 +2158,7 @@ void tnfs_ai_lane_change() {
 		if (lane_left < 0) lane_left = 0;
 		if (lane_left > 7) lane_left = 7;
 
+		FUN_00026954();
 		tnfs_ai_police_parked_respawn();
 
 		/* Populate the "lane_grid" array for all cars */
@@ -2183,14 +2243,19 @@ void tnfs_ai_lane_change() {
 						tnfs_ai_opp_engine_and_cornering(car, lane, &change_lane_vector);
 					}
 
-					//if (car->ai_state & 0x404) {
-					//	...
-					//}
-
-					if ((track_data[car->track_slice].num_lanes & 0xF) != (track_data[(car->track_slice + 11)].num_lanes & 0xF)
-						|| lane_grid[lane] != 1) { //
-
-						if ((car->ai_state & 0x20000) == 0) { //active cars?
+					if ((car != others[1]) //
+							&& ((track_data[car->track_slice].num_lanes & 0xF) == (track_data[(car->track_slice + 11)].num_lanes & 0xF)) //
+							&& lane_grid[lane] == 1 //
+							&& (((car->ai_state & 0x1000) && lane < 4) || (((car->ai_state & 0x1000) != 0) && lane >= 4)) //
+							&& (3 - ((track_data[car->track_slice].num_lanes >> 4) & 0xF) >= lane) //
+							&& (3 - ((track_data[car->track_slice].num_lanes >> 4) & 0xF) <= lane) //
+							&& (track_data[car->track_slice].num_lanes & 0xF) + 4 <= lane //
+							&& (track_data[car->track_slice].num_lanes & 0xF) + 4 >= lane //
+							&& (!(car->ai_state & 0x404) || (car->ai_state & 0x20000)) //
+							) {
+						car->target_center_line = lane * 0x50000 - 0x118000;
+					} else {
+						if (g_config.skill_level == 1) {
 							if (car->ai_state & 0x1000) {
 								if (lane - 1 >= 4)
 									change_lane_vector.x -= 0x50000;
@@ -2275,6 +2340,12 @@ void tnfs_ai_lane_change() {
 						tnfs_ai_traffic_swerve(car, &lane_grid[0], lane, &local_c4, &car_speed_a, &car_speed_b, &others[0]);
 						tnfs_ai_change_vector_combine(car, &car_speed_a, &car_speed_b, &change_lane_vector);
 
+						if ((car->ai_state & 0x1000) //
+								&& (others[1] != 0) //
+								&& (car != others[1]) //
+								&& (others[1]->car_road_speed > 0xa0000)) {
+							change_lane_vector.z -= 0x1e0000;
+						}
 						if (!(car->ai_state & 0x404) && !(car->ai_state & 8)) {
 							if (car->ai_state & 0x1000) {
 								if (car_speed_a.y > -0x30000) {

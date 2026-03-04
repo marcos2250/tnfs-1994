@@ -119,16 +119,27 @@ void tnfs_engine_rev_limiter(tnfs_car_data *car) {
 void tnfs_engine_auto_shift_change(tnfs_car_data *car_data, tnfs_car_specs *car_specs) {
 	int gear;
 	int rpm_vehicle;
+	int downshift_rpm;
+
+	/* 3do version */
 
 	gear = car_data->gear_selected;
 
-	// speed to RPM
-	rpm_vehicle = fixmul(fixmul(car_specs->gear_ratio_table[gear + 2], car_specs->mps_to_rpm_factor), car_data->speed_local_lon) >> 16;
+	if (gear < (car_specs->number_of_gears - 3) && car_data->rpm_vehicle > car_specs->gear_upshift_rpm[gear]) {
 
-	if (gear < (car_specs->number_of_gears - 3) && rpm_vehicle > car_specs->gear_upshift_rpm[gear]) {
+		car_data->rpm_vehicle = fixmul(fixmul(car_specs->gear_ratio_table[gear + 3], car_specs->mps_to_rpm_factor), car_data->speed_local_lon) >> 16;
+
 		// upshift
 		car_data->gear_selected++;
-	} else if (gear > 0 && rpm_vehicle < car_specs->gear_upshift_rpm[gear - 1] / 2) {
+		return;
+	}
+
+	rpm_vehicle = fixmul(fixmul(car_specs->gear_ratio_table[gear + 1], car_specs->mps_to_rpm_factor), car_data->speed_local_lon) >> 16;
+
+	downshift_rpm = car_specs->gear_upshift_rpm[gear - 1];
+	downshift_rpm -= fix4(downshift_rpm);
+
+	if (gear > 0 && rpm_vehicle < downshift_rpm) {
 		// downshift
 		car_data->gear_selected--;
 	}
@@ -311,13 +322,6 @@ void tnfs_tire_forces_locked(int *force_lat, int *force_lon, signed int max_grip
 
 	// calculate resulting forces
 	if (force > max_grip) {
-		*slide = force - max_grip;
-		r2 = max_grip * 5;
-		r0 = fix2(r2);
-		if (braking > r0) {
-			braking = r0;
-		}
-		r0 = math_div_int(max_grip * 2 - braking, fix8(force));
 
 		/*
 		r0 = braking;
@@ -338,6 +342,15 @@ void tnfs_tire_forces_locked(int *force_lat, int *force_lon, signed int max_grip
         r1 = r3;					// mov        r1,r3
         r0 = math_div_int(r1, r0); 	// bl math_div_int
         */
+
+		*slide = force - max_grip;
+		r2 = max_grip * 5;
+		r0 = fix2(r2);
+		if (braking > r0) {
+			braking = r0;
+		}
+		r0 = math_div_int(max_grip * 2 - braking, fix8(force));
+
 
 		*force_lat = fix8(r0 * *force_lat);
 		*force_lon = fix8(r0 * *force_lon);

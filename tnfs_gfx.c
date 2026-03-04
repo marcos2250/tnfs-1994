@@ -490,6 +490,8 @@ void gfx_drawCarWheel(tnfs_car_data * car, tnfs_carmodel3d * carModel, int isFro
 	if (car->car_model_id == 1 && isFront) {
 		//FIX: diablo's narrow front wheel track
 		pX = 0.9f;
+	} else if (car->car_model_id == 4 && isFront) { //also F512
+		pX = 1.0f;
 	} else {
 		pX = ((float) car->car_specs_ptr->body_width) / 0x10000 / 2;
 	}
@@ -781,6 +783,7 @@ void gfx_drawRoad(int isMirror) {
 	int x;
 	int p1, p2;
 	int chunk, strip, slice, texture;
+	int chunk_increment;
 	int count;
 	int i;
 	float h;
@@ -801,11 +804,13 @@ void gfx_drawRoad(int isMirror) {
 
 	// terrain
 	if (isMirror) {
-		chunk = (camera.track_slice >> 2) + 1;
-		count = 4;
+		chunk = (camera.track_slice >> 2) - 4;
+		count = 5;
+		chunk_increment = +1;
 	} else {
-		chunk = (camera.track_slice >> 2) + 19;
-		count = 20;
+		chunk = (camera.track_slice >> 2) + 25;
+		count = 26;
+		chunk_increment = -1;
 	}
 	while(count--) {
 		for (strip = 0; strip < 10; strip++) {
@@ -839,16 +844,16 @@ void gfx_drawRoad(int isMirror) {
 				glEnd();
 		    }
 		}
-		chunk--;
+		chunk += chunk_increment;
 	}
 
 	// fences/tunnel wall
 	if (isMirror) {
-		chunk = (camera.track_slice >> 2) + 1;
-		count = 4;
+		chunk = (camera.track_slice >> 2) - 4;
+		count = 5;
 	} else {
-		chunk = (camera.track_slice >> 2) + 9;
-		count = 10;
+		chunk = (camera.track_slice >> 2) + 14;
+		count = 15;
 	}
 	while (count--) {
 		p1 = chunk * 4;
@@ -903,7 +908,7 @@ void gfx_drawRoad(int isMirror) {
 				p2++;
 			}
 		}
-		chunk--;
+		chunk += chunk_increment;
 	}
 
 	if (g_track_sel == 3) return;
@@ -1167,6 +1172,7 @@ void gfx_rear_view_mirror() {
 	glDisable(GL_DEPTH_TEST);
 	gfx_drawHorizon();
 	gfx_drawRoad(1);
+	gfx_drawSmoke();
 
 	for (i = 0; i < g_total_cars_in_scene; i++) {
 		if ((g_car_ptr_array[i]->field_4e9 & 4) == 0) {

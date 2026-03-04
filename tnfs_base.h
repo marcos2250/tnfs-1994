@@ -337,9 +337,9 @@ typedef struct tnfs_car_data {
 	int car_road_speed; //0x15c
 	int speed_target; //0x160
 	int target_center_line; //0x164
-	int field_168;
-	int field_16c;
-	int field_170;
+	int handling_factor[3]; //0x168 - PDN 0x14
+	int handling_factor_inv[3]; //0x16C
+	int speed_factor[3]; //0x170 - PDN 0x18
 
 	/*
 	 * 0x0 traffic
@@ -477,8 +477,6 @@ typedef struct tnfs_car_data {
 	int surface_type_2;
 	int redline; //0x1d4 TdDyn
 	int horn_freq; //0x1d8 TdDyn
-	int handling_factor[3]; //0x14 TdDyn
-	int speed_factor[3]; //0x20 TdDyn
 } tnfs_car_data;
 
 typedef struct tnfs_track_data {
@@ -608,7 +606,7 @@ typedef struct tnfs_ai_skill_cfg {
 	/*
 	 * #Opponent Glue:
 	 */
-	int opponent_glue_0[21]; //0x5c
+	int opponent_glue_factors[21]; //0x5c
 
 	//#0 don't echo the stats, anything else= echo stats below
 	int echo_stats;
@@ -783,8 +781,8 @@ extern int selected_camera;
 extern tnfs_camera camera;
 
 extern int g_collision_bump_ref;
-extern int g_collision_bump_val;
-extern int g_collision_force;
+extern int g_collision_force_carcar;
+extern int g_collision_force_wall;
 extern int DAT_000F9BB0;
 extern int DAT_000f99e4;
 extern int DAT_000f99e8;

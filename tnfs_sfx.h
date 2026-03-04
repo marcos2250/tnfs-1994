@@ -10,7 +10,7 @@
 typedef struct sfx_assets {
 	float length;
     float playback_pos;
-    float volume;
+    float volume[2];
     float pitch;
     char loop;
     char play;
@@ -24,7 +24,7 @@ void sfx_init_frontend();
 void sfx_init_sim(int carId);
 void sfx_clear_buffers();
 
-void sfx_play_sound(int id, char loop, float pitch, float volume);
+void sfx_play_sound(int id, char loop, float pitch, float volume, float direction);
 void sfx_stop_sound(int id);
 
 void sfx_play_music(int id);

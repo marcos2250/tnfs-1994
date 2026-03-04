@@ -91,7 +91,7 @@ void handleKeys() {
 			tnfs_crash_car();
 			break;
 		case SDLK_h:
-			sfx_play_sound(5, 1, 0.25f, 1);
+			sfx_play_sound(5, 1, 0.25f, 1, 1);
 			break;
 		case SDLK_F9:
 			tnfs_toggle_dash();
@@ -261,7 +261,7 @@ void toggle_s(int *current, int max, int inc) {
 }
 
 void toggle(int *current, int max, int inc) {
-	sfx_play_sound(2, 0, 0.5f, 1);
+	sfx_play_sound(2, 0, 0.5f, 1, 0);
 	toggle_s(current, max, inc);
 }
 
@@ -598,14 +598,14 @@ void tnfs_menu_drive_start() {
 	}
 
 	sfx_init_frontend();
-	sfx_play_sound(0, 1, 1, 1);
+	sfx_play_sound(0, 1, 1, 1, 0);
 	SDL_PauseAudioDevice(audioDevice, 0);
 }
 
 void tnfs_menu_control() {
 	int option = 0;
 	sfx_init_frontend();
-	sfx_play_sound(0, 1, 1, 1);
+	sfx_play_sound(0, 1, 1, 1, 0);
 	SDL_PauseAudioDevice(audioDevice, 0);
 	while(1) {
 		switch (keys_getkey()) {
@@ -622,7 +622,7 @@ void tnfs_menu_control() {
 			toggle(&option, 4, -1);
 			break;
 		case SDLK_RETURN:
-			sfx_play_sound(1, 0, 0.5f, 1);
+			sfx_play_sound(1, 0, 0.5f, 1, 0);
 			if (option == 0)
 				tnfs_menu_drive_start();
 			if (option == 1)
@@ -786,8 +786,8 @@ void fileView_printData() {
 	char text[80] = "wwww ";
 	if (fileView_data[0] == 'w') {
 		while (g_wpath_result[i] >= 0) {
-			strcpy((char*)&auxstr, text);
-			sprintf((char*)&text, "%s / %d ", (char*)&auxstr, g_wpath_result[i]);
+			sprintf(auxstr, " / %d ", g_wpath_result[i]);
+			strcat(text, auxstr);
 			i++;
 		}
 		gfx_draw_text_9500((char*)&text, 10, 10);
@@ -883,7 +883,7 @@ void audioPlayer_main() {
 			fileView_sfx_screen(id);
 			break;
 		case SDLK_SPACE:
-			sfx_play_sound(id, 0, 0.25f, 1);
+			sfx_play_sound(id, 0, 0.25f, 1, 0);
 			break;
 		case SDLK_ESCAPE:
 			return;

@@ -123,9 +123,9 @@ struct tnfs_smoke_puff g_smoke[SMOKE_PUFFS];
 int DAT_800eb6a4 = 0; //800eb6a4
 int DAT_8010d310 = 0; //8010d310
 
-int g_collision_bump_ref = 0x6666; //DAT_000f9a70 800eae58
-int g_collision_bump_val = 0; // INT_000f99f0
-int g_collision_force; // 000f9a74;
+int g_collision_bump_ref = 0x6666; // f99f0 800eae58
+int g_collision_force_carcar = 0; // f9a70
+int g_collision_force_wall = 0; // f9a74;
 int DAT_000F9BB0 = 0;
 int DAT_000f99e4 = 0x10000;
 int DAT_000f99e8 = 0x34000;
@@ -657,10 +657,16 @@ void tnfs_init_car() {
 	car->car_length = car_specs.body_length;
 	car->car_width = car_specs.body_width;
 
-	if (g_config.abs)
+	if (g_config.abs) {
 		car->abs_enabled = car_specs.abs_equipped;
-	if (g_config.tcs)
+	} else {
+		car->abs_enabled = 0;
+	}
+	if (g_config.tcs) {
 		car->tcs_enabled = car_specs.tcs_equipped;
+	} else {
+		car->tcs_enabled = 0;
+	}
 
 	car->gear_auto_selected = 0;
 
@@ -715,7 +721,16 @@ void tnfs_controls_update() {
 
 void tnfs_change_camera() {
 	selected_camera++;
+
 	if (selected_camera > 4)
+		selected_camera = 0;
+
+	// cop cam
+	if (selected_camera == 3 && g_number_of_cops == 0)
+		selected_camera = 0;
+
+	// opponent cam
+	if (selected_camera == 2 && g_racer_cars_in_scene == 1)
 		selected_camera = 0;
 
 	camera.id_user = selected_camera;
@@ -797,42 +812,57 @@ void tnfs_crash_car() {
 
 void tnfs_sfx_play(int a, int id1, int id2, int volume, int distance, int direction) {
 	float vol;
+	float dir;
 
 	if (distance < 0x80000) {
 		vol = 1;
 	} else if (distance < 0x100000) {
 		vol = 0.5;
-	} else if (distance < 0x400000) {
-		vol = 0.25;
+	} else if (distance < 0x200000) {
+		vol = 0.1;
 	} else {
 		return;
+	}
+
+	if (direction < 0x200000) { //45
+		dir = 0;
+	} else if (direction < 0x600000) { //135
+		dir = -1;
+	} else if (direction < 0xA00000) { //225
+		dir = 0;
+	} else if (direction < 0xE00000) { //295
+		dir = +1;
+	} else {
+		dir = 0;
 	}
 
 	if (id1 == 2) {
 		//collisions
 		if (id2 == 0) {
 			// car on car
-			sfx_play_sound(9, 0, 0.25f, vol);
+			sfx_play_sound(9, 0, 0.25f, vol, dir);
 		} else if (id2 == 1) {
 			// rollover crash
-			sfx_play_sound(7, 0, 0.25f, vol);
+			sfx_play_sound(7, 0, 0.25f, vol, dir);
 		} else if (id2 == 9) {
 			//fence collision
-			sfx_play_sound(14, 0, 0.25f, vol);
+			sfx_play_sound(14, 0, 0.25f, vol, dir);
 		}
 
 	} else if (id1 == 4) {
 		// car jump hit
-		sfx_play_sound(13, 0, 0.25f, 1);
+		sfx_play_sound(13, 0, 0.25f, 1, dir);
 
 	} else if (id1 == 13) {
 		// gear shift
-		sfx_play_sound(4, 0, 0.25f, 1);
+		sfx_play_sound(4, 0, 0.25f, 1, dir);
 	}
 }
 
 void sfx_update() {
 	float f = 0;
+	float d = 0;
+	float v = 0;
 
 	tnfs_car_data * car;
 
@@ -844,19 +874,24 @@ void sfx_update() {
 	// engine sound
 	if (car->is_crashed) {
 		f = 0;
+		v = 0;
 	} else {
 		f = ((float)car->rpm_engine) / 14000;
+		v = ((((float)car->throttle) / 0x200) + 0.5f) * f;
 	}
-	sfx_play_sound(2, 1, f, f);
+	sfx_play_sound(2, 1, f, v, 0);
 
 	// cop siren
-	if (g_cop_car_ptr && ((g_cop_car_ptr->ai_state & 0x408) == 0x408)) {
+	if (g_cop_car_ptr && ((g_cop_car_ptr->ai_state & 0x408) == 0x408) && (g_cop_car_ptr->crash_state != 4)) {
 		f = abs(camera.track_slice - g_cop_car_ptr->track_slice);
 		f = (100 / f) / 100;
+		d =  g_cop_car_ptr->center_line_distance - car->center_line_distance;
+		d /= 100000;
 	} else {
 		f = 0;
+		d = 0;
 	}
-	sfx_play_sound(10, 1, 0.25f, f);
+	sfx_play_sound(10, 1, 0.25f, f, d);
 
 	// air drag/rolling tires sound
 	if (car->time_off_ground > 0 || car->is_crashed) {
@@ -864,13 +899,13 @@ void sfx_update() {
 	} else {
 		f = ((float)car->speed_local_lon) / 0x600000;
 	}
-	sfx_play_sound(17, 1, f, f);
+	sfx_play_sound(17, 1, f, f, 0);
 
 	// unpaved road sound
 	if (car->surface_type == 0) {
 		f = 0;
 	}
-	sfx_play_sound(11, 1, 0.25f, f);
+	sfx_play_sound(11, 1, 0.25f, f, 0);
 
 	// tire screeching
 	if (car->time_off_ground > 0 || car->is_crashed || car->speed == 0) {
@@ -886,14 +921,14 @@ void sfx_update() {
 			}
 		}
 	}
-	sfx_play_sound(18, 1, f, f);
+	sfx_play_sound(18, 1, f, f, 0);
 
 	// cop radar detector
 	if (g_cop_car_ptr != 0 && g_cop_car_ptr->track_slice > 1) {
 		if (g_cop_radar_time < 0) {
 			g_cop_radar_time = abs(g_cop_car_ptr->track_slice - player_car_ptr->track_slice);
 			if (g_cop_radar_time < 40) {
-				sfx_play_sound(12, 0, 0.5f, 1);
+				sfx_play_sound(12, 0, 0.5f, 1, 0);
 			}
 		}
 		g_cop_radar_time--;

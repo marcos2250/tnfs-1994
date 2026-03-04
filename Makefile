@@ -8,6 +8,15 @@ LIBS=-lSDL2 -lSDL2main -lm -lGL -lGLU
 INCL=-I/usr/include/SDL2
 endif
 
+BUILD_MODE ?= release
+
+CFLAGS=-Wall
+ifeq ($(BUILD_MODE),debug)
+	CFLAGS += -g3 -O0
+else
+	CFLAGS += -O2
+endif
+
 OBJS= \
 	ccb.c \
 	tnfs_math.c \
@@ -23,17 +32,20 @@ OBJS= \
 	tnfs_front.c \
 	tnfs_main.c
 	
-all: compile
+all: tnfs
 
 clean:
 	rm -f build/*
 	mkdir -p build
 
-compile_debug:
-	$(CC) $(OBJS) $(INCL) $(LIBS) -g3 -Wall -o build/tnfs 
+debug:
+	@$(MAKE) BUILD_MODE=debug tnfs
 
-compile:
-	$(CC) $(OBJS) $(INCL) $(LIBS) -O2 -Wall -o build/tnfs 
+release:
+	@$(MAKE) BUILD_MODE=release tnfs
+	
+tnfs:
+	$(CC) $(OBJS) $(INCL) $(LIBS) $(CFLAGS) -o build/tnfs 
 	
 run:
 	build/tnfs

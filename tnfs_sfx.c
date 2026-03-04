@@ -33,7 +33,8 @@ void sfx_clear_buffers() {
 		g_sounds[i].data = 0;
 		g_sounds[i].length = 0;
 		g_sounds[i].playback_pos = 0;
-		g_sounds[i].volume = 1;
+		g_sounds[i].volume[0] = 1;
+		g_sounds[i].volume[1] = 1;
 		g_sounds[i].pitch = 1;
 		g_sounds[i].loop = 0;
 		g_sounds[i].play = 0;
@@ -203,7 +204,8 @@ void sfx_load_file_into_channel(char * filename, int channelId) {
 	g_sounds[channelId].length = (float) out_length / 2;
 	g_sounds[channelId].loop = 1;
 	g_sounds[channelId].playback_pos = 0;
-	g_sounds[channelId].volume = 1;
+	g_sounds[channelId].volume[0] = 1;
+	g_sounds[channelId].volume[1] = 1;
 	g_sounds[channelId].pitch = 1;
 
 	if (g_sound_counter < channelId + 1)
@@ -267,6 +269,7 @@ void sfx_init_sim(int carId) {
 void sfx_mix_stream(int16_t *outStream, int outLen, sfx_assets * sound) {
 
 	int value = 0;
+	int ch = 0;
 	int16_t *in = sound->data;
 	int16_t *out = (int16_t*) outStream;
 	outLen /= 2;
@@ -289,7 +292,8 @@ void sfx_mix_stream(int16_t *outStream, int outLen, sfx_assets * sound) {
 		sound->playback_pos += sound->pitch;
 
 		// volume
-		value *= sound->volume;
+		value *= sound->volume[ch];
+		ch ^= 1; //stereo;
 
 		// sound output mix (just add and clamp value)
 		value += *out;
@@ -324,9 +328,26 @@ void sfx_play_speech_track(int trackId) {
 	g_sounds[3].pitch = 0.5f;
 }
 
-void sfx_play_sound(int id, char loop, float pitch, float volume) {
+void sfx_play_sound(int id, char loop, float pitch, float volume, float direction) {
 	if (volume > 1) volume = 1;
-	g_sounds[id].volume = volume;
+	if (direction > 1) direction = 1;
+	if (direction < -1) direction = -1;
+
+	if (direction == 0) {
+		g_sounds[id].volume[0] = volume;
+		g_sounds[id].volume[1] = volume;
+	} else {
+		if (direction < 0) {
+			// left -1
+			g_sounds[id].volume[0] = volume * (1 + direction);
+			g_sounds[id].volume[1] = volume;
+		} else {
+			// right +1
+			g_sounds[id].volume[0] = volume;
+			g_sounds[id].volume[1] = volume * (1 - direction);
+		}
+	}
+
 	g_sounds[id].pitch = pitch;
 	g_sounds[id].play = volume > 0 ? 1 : 0;
 	g_sounds[id].loop = loop;
@@ -342,14 +363,14 @@ void sfx_stop_sound(int id) {
  * callback for SDL Audio system
  */
 void sfx_sdl_audio_callback(void* userdata, int16_t* stream, int len) {
-	sfx_assets * channel;
+	sfx_assets * sound;
 	int i;
 
 	memset(stream, 0, len);
 	for (i = 0; i < g_sound_counter; i++) {
-		channel = &g_sounds[i];
-		if (channel->play && channel->volume > 0) {
-			sfx_mix_stream(stream, len, channel);
+		sound = &g_sounds[i];
+		if (sound->play && (sound->volume[0] > 0 || sound->volume[1] > 0)) {
+			sfx_mix_stream(stream, len, sound);
 		}
 	}
 }
