@@ -15,6 +15,7 @@ int height;
 int bpp;
 int isBgnd;
 int isPacked;
+int isLRForm;
 int isShaded;
 int buffer_width;
 int buffer_height;
@@ -48,14 +49,14 @@ int readInt32(unsigned char *buffer, int pos) {
 		| buffer[pos + 3];
 }
 
-int bswap16(short in) {
+int bswap16(unsigned short in) {
 	//return __builtin_bswap16(in);
 	return ((in & 0xFF) << 8) | ((in & 0xFF00) >> 8);
 }
 
-int bswap32(int in) {
+int bswap32(unsigned int in) {
 	//return __builtin_bswap32(in);
-	return ((in & 0xFF) << 24) //
+	return (((unsigned int)in & 0xFF) << 24) //
 			| ((in & 0xFF00) << 8) //
 			| ((in & 0xFF0000) >> 8) //
 			| (in >> 24);
@@ -125,7 +126,7 @@ void writepixel(byte * buffer, int *idx, int rgb, int shade) {
 	}
 }
 
-int ccb_parse_header(ccb_chunk *ccb) {
+int ccb_parse_header(CCB *ccb) {
 	byte *cel = 0;
 	int limit = 0x10000;
 	pdat = 0;
@@ -170,8 +171,10 @@ int ccb_parse_header(ccb_chunk *ccb) {
 
 	isBgnd   = (ccb->ccb_Flags & 0x20000000) != 0; //CCB_BGND 0x00000020
 	isPacked = (ccb->ccb_Flags & 0x00020000) != 0; //CCB_PACKED 0x00000200
+	isLRForm = (ccb->ccb_PRE1 & 0x00080000) != 0; //PRE1_LRFORM 0x00000800
 
 	if (width == 4 && height == 4) isBgnd = 0; //FIXME transparent texture
+	if (width == 320) isBgnd = 1; //FIXME really is a background image
 
 	cel = (byte*) ccb;
 	cel += bswap32(ccb->chunk_size);
@@ -240,6 +243,7 @@ int shpm_parse_header(shpm_image * shape) {
 
 	isBgnd = 0;
 	isPacked = shape->flags & 0x80;
+	isLRForm = 0;
 
 	plutOffset = (shape->plut_le[0] << 16) | (shape->plut_le[1] << 8) | shape->plut_le[2];
 	if (plutOffset != 0) {
@@ -253,6 +257,32 @@ int shpm_parse_header(shpm_image * shape) {
 
 	pdat = shape->data;
 	return 1;
+}
+
+void ccb_decode_lrform_image(byte * output, int posX, int posY) {
+	short bx, by;
+	int rgb = 0;
+	int bit = 0;
+	int outidx = 0;
+	int outidx2 = 0;
+
+	for (by = 0; by < height; by+=2) {
+		if (isUpsideDown) {
+			outidx = ((buffer_height - by - posY - 1) * buffer_width + posX) * 4;
+			outidx2 = ((buffer_height - (by+1) - posY - 1) * buffer_width + posX) * 4;
+		} else {
+			outidx = (((by + posY) * buffer_width) + posX) * 4;
+			outidx2 = ((((by+1) + posY) * buffer_width) + posX) * 4;
+		}
+
+		for (bx = 0; bx < width; bx++) {
+			rgb = readbits(pdat, &bit, bpp);
+			writepixel(output, &outidx, rgb, 0);
+
+			rgb = readbits(pdat, &bit, bpp);
+			writepixel(output, &outidx2, rgb, 0);
+		}
+	}
 }
 
 void ccb_decode_linear_image(byte * output, int posX, int posY) {
@@ -297,7 +327,7 @@ void ccb_decode_linear_image(byte * output, int posX, int posY) {
 		}
 
 		// ???
-		if (width < 5)
+		if (width < 6)
 			bit += 32;
 
 		//skip to 32bit boundary
@@ -397,23 +427,26 @@ void ccb_decode_packed_image(byte * output, int posX, int posY) {
 	}
 }
 
-void ccb_draw_to_buffer(byte * output, int left, int top, int bufWidth, int bufHeight, char upsideDown) {
-	// magic flag to center image on screen
-	if (top == -990) {
-		left = (320 - width) / 2;
-		top = (240 - height) / 2;
+void ccb_decode_texture(byte * output, int left, int top) {
+	if (isPacked) {
+		ccb_decode_packed_image(output, left, top);
+	} else {
+		if (isLRForm) {
+			ccb_decode_lrform_image(output, left, top);
+		} else {
+			ccb_decode_linear_image(output, left, top);
+		}
 	}
+}
+
+void ccb_draw_to_buffer(byte * output, int left, int top, int bufWidth, int bufHeight, char upsideDown) {
 	isUpsideDown = upsideDown;
 
 	buffer_width = bufWidth;
 	buffer_height = bufHeight;
 	buffer_size = bufWidth * bufHeight * 4;
 
-	if (isPacked) {
-		ccb_decode_packed_image(output, left, top);
-	} else {
-		ccb_decode_linear_image(output, left, top);
-	}
+	ccb_decode_texture(output, left, top);
 }
 
 image_data * shpm_image_convert(shpm_image * shpm, shpm_image * optional_plut) {
@@ -442,15 +475,11 @@ image_data * shpm_image_convert(shpm_image * shpm, shpm_image * optional_plut) {
 	output->height = height;
 	output->size = size;
 	isUpsideDown = 0;
-	if (isPacked) {
-		ccb_decode_packed_image(output->rgba, 0, 0);
-	} else {
-		ccb_decode_linear_image(output->rgba, 0, 0);
-	}
+	ccb_decode_texture(output->rgba, 0, 0);
 	return output;
 }
 
-image_data * ccb_image_convert(ccb_chunk *ccb) {
+image_data * ccb_image_convert(CCB *ccb) {
 	image_data * output;
 	int size = 0;
 	if (!ccb_parse_header(ccb)) {
@@ -472,10 +501,6 @@ image_data * ccb_image_convert(ccb_chunk *ccb) {
 	output->height = height;
 	output->size = size;
 	isUpsideDown = 0;
-	if (isPacked) {
-		ccb_decode_packed_image(output->rgba, 0, 0);
-	} else {
-		ccb_decode_linear_image(output->rgba, 0, 0);
-	}
+	ccb_decode_texture(output->rgba, 0, 0);
 	return output;
 }

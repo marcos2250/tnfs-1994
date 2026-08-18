@@ -5,3 +5,5 @@ assets/frontend
 .cproject
 .settings
 .vscode
+/Default/
+hiscores.txt

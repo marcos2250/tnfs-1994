@@ -16,14 +16,9 @@
 const int g_gravity_const = 0x9CF5C;
 
 struct tnfs_config g_config;
-struct tnfs_game_stats g_game_stats[10];
-struct tnfs_track_stats g_track_stats[4];
-
-int g_player_car = 0;
-int g_opp_car = 0;
-int g_track_sel = 0;
-int g_track_segment = 0;
-int g_race_status = 0;
+struct tnfs_hiscores g_best_times[12]; // 3 best per route (3x4)
+struct tnfs_hiscores g_hiscores[10];
+tnfs_stats_data g_stats_data;
 
 tnfs_track_data track_data[2400];
 tnfs_surface_type road_surface_type_array[6];
@@ -35,7 +30,13 @@ tnfs_car_data *g_car_ptr_array[8]; // 00153ba0/00153bec 8010c720/800f7e60
 tnfs_car_data *player_car_ptr;
 tnfs_car_data *g_cop_car_ptr = 0;
 tnfs_ai_skill_cfg g_ai_skill_cfg;
-tnfs_stats_data g_stats_data;
+
+int g_player_car = 0;
+int g_opp_car = 0;
+int g_track_sel = 0;
+int g_track_segment = 0;
+int g_race_status = 0;
+int g_quit_race = 0;
 
 int g_total_cars_in_scene = 7;
 int g_racer_cars_in_scene = 2; // (including player) 001670AB DAT_8010d1c8
@@ -60,6 +61,8 @@ int g_police_speeding_ticket = 0; //0016513C
 int g_police_chase_time = 0; //0016533c
 int g_police_ticket_time = 0;
 int g_cop_radar_time = 0;
+int g_toast_bonus_time = 0;
+int g_toast_crash_time = 0;
 
 tnfs_camera camera;
 int selected_camera = 0;
@@ -96,27 +99,27 @@ tnfs_vec9 g_shadow_matrix;
 // track scenery
 float g_terrain[99000];
 char g_terrain_texId[6000];
-int g_terrain_texPkt[256];
-int g_horizon_texPkt[12];
+unsigned int g_terrain_texPkt[256];
+unsigned int g_horizon_texPkt[12];
 int g_fences[600];
 
 struct tnfs_object3d g_scenery_3d_objects[1];
 struct tnfs_scenery_descriptor g_scenery_models[64];
 struct tnfs_scenery_object g_scenery_object[1000];
-int g_scenery_texPkt[256];
+unsigned int g_scenery_texPkt[256];
 int g_scenery_models_count = 0;
 int g_scenery_objects = 0;
 
 // hud
-int g_hud_texPkt[15];
+unsigned int g_hud_texPkt[30];
 
 // dash
 tnfs_dash_constants g_dash_constants;
-int g_dash_texPkt[10];
+unsigned int g_dash_texPkt[10];
 char g_dash_enabled = 1;
 
 // smoke
-int g_smoke_texPkt[5];
+unsigned int g_smoke_texPkt[5];
 int g_smoke_delay;
 struct tnfs_smoke_puff g_smoke[SMOKE_PUFFS];
 
@@ -710,21 +713,15 @@ void tnfs_controls_update() {
 		if (g_car_array[0].brake < 0)
 			g_car_array[0].brake = 0;
 	}
-
-	//checkpoint flick
-	if (tnfs_racer_crossed_finish_line(&g_car_array[0])) {
-		tnfs_driving_checkpoint_flick(&g_car_array[0]);
-	} else {
-		g_car_array[0].field_4cd = 0;
-	}
 }
 
 void tnfs_change_camera() {
 	selected_camera++;
 
-	if (selected_camera > 4)
+	if (selected_camera > 3)
 		selected_camera = 0;
 
+	/*
 	// cop cam
 	if (selected_camera == 3 && g_number_of_cops == 0)
 		selected_camera = 0;
@@ -732,6 +729,7 @@ void tnfs_change_camera() {
 	// opponent cam
 	if (selected_camera == 2 && g_racer_cars_in_scene == 1)
 		selected_camera = 0;
+	*/
 
 	camera.id_user = selected_camera;
 
@@ -971,25 +969,16 @@ void tnfs_initial_position(tnfs_car_data *car) {
 }
 
 int tnfs_racer_crossed_finish_line(tnfs_car_data *car) {
-	if ((g_number_of_players > 1) //
-			&& (car->track_slice < 0xe) //
-			&& (car->lap_number == 1) //
-			&& (car->position.z < 0x510000)) {
-		car->position.z = 0x510000;
-		car->speed_local_lat = car->speed_local_lat / 2;
-		car->speed_local_lon = car->speed_local_lon / 2;
-		car->speed_z = car->speed_z / 2;
-		car->speed_x = car->speed_x / 2;
-	}
-	if (car->track_slice < 0xc) {
-		if (car->position.z < 0x120000) {
-			car->position.z = 0x120000;
-		}
-		return 1;
-	}
+
 	if (car->track_slice > g_road_finish_node) {
-		return 2;
+		tnfs_driving_checkpoint_flick(car);
+
+		//...
+
+	} else {
+		g_car_array[0].field_4cd = 0;
 	}
+
 	return 0;
 }
 
@@ -1326,6 +1315,8 @@ void tnfs_init_sim() {
 	g_game_settings = 0;
 	sound_flag = 0;
 	g_race_status = 0;
+	g_toast_crash_time = 0;
+	g_toast_bonus_time = 0;
 
 	//init track
 	sprintf(trkfile, "assets/DriveData/tracks/%s%d.trk", g_track_files[g_track_sel], g_track_segment + 1);
@@ -1347,13 +1338,17 @@ void tnfs_init_sim() {
 	g_stats_data.penalty_count = 0;
 	g_stats_data.warning_count = 0;
 	g_stats_data.field_0x1b8 = 0;
-	g_stats_data.prev_lap_time = 0;
-	g_stats_data.lap_time_0x1c0 = 0;
-	g_stats_data.top_speed = 0;
-	g_stats_data.top_speed_2 = 0;
-	for (i = 0; i < 17; i++) {
-		g_stats_data.lap_timer[i] = 0;
-	}
+	//g_stats_data.top_speed = 0;
+	//g_stats_data.top_speed_2 = 0;
+	//g_stats_data.cars_crashed = 0;
+	//g_stats_data.cars_remaining = 2;
+	g_stats_data.reaction_time = 0;
+	g_stats_data.bonus_car_track_slice = 0x360; //stub
+	g_stats_data.bonus_car_time = 0x2000; //stub
+	g_stats_data.bonus_car_flag = 0;
+
+	g_stats_data.segment_time = 0;
+	//g_stats_data.route_time = 0;
 
 	// load cars 3d models
 	g_carmodels_count = 0;
@@ -1382,11 +1377,11 @@ void tnfs_init_sim() {
 		g_dash_constants.gauge_idle_angle = 3.92f;
 		g_dash_constants.gauge_needle_length = 15;
 	}
-	g_dash_constants.steer_pos_x = 160;
-	g_dash_constants.steer_pos_y = 210;
-	g_dash_constants.steer_size = 88;
-	g_dash_constants.rear_view[2] = 60;
-	g_dash_constants.rear_view[3] = 22;
+	g_dash_constants.steer_pos_x = 170;
+	g_dash_constants.steer_pos_y = 230;
+	g_dash_constants.steer_size = 100;
+	g_dash_constants.rear_view[2] = 65;
+	g_dash_constants.rear_view[3] = 25;
 
 
 	// common art
@@ -1466,8 +1461,20 @@ void tnfs_update() {
 		}
 	}
 
+	if (g_police_ticket_time) {
+		g_police_ticket_time--;
+		if (g_police_ticket_time == 0) {
+			// just reset player car
+			tnfs_reset_car(player_car_ptr);
+		}
+	}
 
 	player_car_ptr->car_road_speed = tnfs_car_road_speed(player_car_ptr);
+	if (player_car_ptr->speed > g_stats_data.top_speed) {
+		g_stats_data.top_speed = player_car_ptr->speed;
+	}
+
+	tnfs_racer_crossed_finish_line(&g_car_array[0]);
 
 	tnfs_controls_update();
 	tnfs_ai_collision_handler();

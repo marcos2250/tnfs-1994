@@ -10,11 +10,11 @@ endif
 
 BUILD_MODE ?= release
 
-CFLAGS=-Wall
+CFLAGS=-Wall -m32
 ifeq ($(BUILD_MODE),debug)
 	CFLAGS += -g3 -O0
 else
-	CFLAGS += -O2
+	CFLAGS += -g3 -O0
 endif
 
 OBJS= \

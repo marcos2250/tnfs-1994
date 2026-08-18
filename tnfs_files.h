@@ -7,7 +7,7 @@
 
 #include "tnfs_base.h"
 
-#define byte unsigned char
+typedef unsigned char byte;
 
 typedef struct file_assets {
     char name[128];
@@ -18,7 +18,7 @@ typedef struct file_assets {
 void fileWrite(byte * data, int size);
 byte * openFile(char * filename, int * fileSize);
 byte * openFileBuffer(char * filename, int * fileSize);
-void clearFileBuffer();
+void file_clear_buffers();
 
 byte * read_wwww(byte *data, int path[], int depth);
 int locate_wwww(byte *data, byte *pointer, int depth, int *path_result);
@@ -32,5 +32,8 @@ int read_track_pkt_file(char * trackname);
 int read_hud_dash_file(char * carname);
 void read_dash_constants(char * carname);
 int read_sim_common_art_file();
+
+void file_highscores_read();
+void file_highscores_write();
 
 #endif /* TNFS_FILES_H_ */

@@ -1022,6 +1022,17 @@ void tnfs_physics_update(tnfs_car_data *car_data) {
 		}
 	}
 
+	if (g_stats_data.reaction_time == 0) {
+		int r0, r12;
+		r0 = abs(car_data->speed_local_lon);
+		r12 = r0 - 0xcc0; // subs       r12,r0,#0xcc0
+        if (r12 > 0xc)	{ // cmpge      r12,#0xc
+                          // ble        LAB_0001291c
+			tnfs_replay_highlight_record(0x78);
+			g_stats_data.reaction_time = iSimTimeClock + 1;
+		}
+	}
+
 	// Performance test - only PC version and Rusty Springs track
 	if (!is_performance_test_off && selected_track == 3) {
 		if (car_data->track_slice <= 97 || car_data->track_slice >= 465) {
@@ -1089,6 +1100,14 @@ void tnfs_physics_update(tnfs_car_data *car_data) {
 		}
 	}
 
+    /*  win a bonus car (3DO) */
+	if ((iSimTimeClock - g_stats_data.reaction_time < g_stats_data.bonus_car_time) //
+			&& (car_data->track_slice > g_stats_data.bonus_car_track_slice) //
+			&& (g_stats_data.bonus_car_flag == 0)) {
+		g_stats_data.bonus_car_flag = 1;
+		g_stats_data.cars_remaining++;
+		g_toast_bonus_time = 30;
+	}
 }
 
 void tnfs_height_3B76F(tnfs_car_data *car) {

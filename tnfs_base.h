@@ -9,7 +9,7 @@
 
 typedef struct tnfs_polygon {
 	int polyId;
-    int textureId;
+    unsigned int textureId; //GL texture id
     float points[9];
     float texUv[6];
 } tnfs_polygon;
@@ -21,15 +21,15 @@ typedef struct tnfs_object3d {
 
 typedef struct tnfs_carmodel3d {
 	tnfs_object3d model;
-	int wheelTexId[4];
-	int brakeLightTexId;
+	unsigned int wheelTexId[4];
+	unsigned int brakeLightTexId;
 	int bkll;
 	int bklr;
 	int rt_rear;
 	int lt_rear;
 	int rt_frnt;
 	int lt_frnt;
-	int copSirenLights[2];
+	unsigned int copSirenLights[2];
 	int lrr0;
 	int lrl0;
 } tnfs_carmodel3d;
@@ -61,25 +61,16 @@ typedef struct tnfs_config {
     int control; //0x10
 } tnfs_config;
 
-typedef struct tnfs_game_stats {
+typedef struct tnfs_hiscores {
     int id;
-    char name[10];
-    int unknown;
-    int car_id;
+    char name[12];
+    int skill;
     int track_id;
+    int car_id;
     int score;
-    int skill;
-} tnfs_game_stats;
-
-typedef struct tnfs_track_stats {
-    int id;
-    char name[10];
-    int time;
-    int car_id;
-    int track_id;
-    int skill;
-    int max_speed;
-} tnfs_track_stats;
+    int time; //?
+    int max_speed; //?
+} tnfs_hiscores;
 
 /*
  * TNFS 3DO .spec text file
@@ -453,7 +444,7 @@ typedef struct tnfs_car_data {
 	int abs_on; //0x4B1
 	// ...
 	int field_4c5; //0x4C5 checkpoint flick maneuvre
-	int field_4c9; //0x4C9
+	int field_4c9; //0x4C9 time since finish line cross
 	int field_4cd; //0x4CD crossed the finish line flag
 	int field_4d1; //0x4D1
 	int field_4d3; //0x4D3
@@ -654,7 +645,6 @@ typedef struct tnfs_ai_skill_cfg {
 } tnfs_ai_skill_cfg;
 
 typedef struct tnfs_stats_data {
-	int lap_timer[17]; //0x0
 	// ...
 	int best_accel_time_1; //0x198
 	int best_accel_time_2; //0x19c
@@ -666,11 +656,18 @@ typedef struct tnfs_stats_data {
 	int warning_count; //0x1b4
 	int field_0x1b8; //0x1b8
 	// ...
-	int prev_lap_time; //0x1bc
-	// ...
-	int lap_time_0x1c0; //0x1c0
 	int top_speed; //0x1c4
 	int top_speed_2; //0x1c8
+	// ...
+	int route_time;
+	int segment_time;
+	// ...
+	int cars_crashed;
+	int cars_remaining;
+	int reaction_time;
+	int bonus_car_track_slice;
+	int bonus_car_time;
+	int bonus_car_flag;
 } tnfs_stats_data;
 
 typedef struct tnfs_random_struct {
@@ -734,13 +731,13 @@ typedef struct tnfs_dash_constants {
 
 // global variables
 extern struct tnfs_config g_config;
-extern struct tnfs_game_stats g_game_stats[10];
-extern struct tnfs_track_stats g_track_stats[4];
+extern struct tnfs_hiscores g_best_times[12];
+extern struct tnfs_hiscores g_hiscores[10];
 extern int g_opp_car;
 extern int g_player_car;
 extern int g_track_sel;
 extern int g_track_segment;
-extern int g_end_race;
+extern int g_quit_race;
 
 extern struct tnfs_track_data track_data[2400];
 extern struct tnfs_surface_type road_surface_type_array[6];
@@ -804,25 +801,27 @@ extern int g_player_id;
 extern int g_cam_change_delay;
 extern const int g_gravity_const;
 extern int g_race_positions[8];
+extern int g_toast_bonus_time;
+extern int g_toast_crash_time;
 
 extern struct tnfs_carmodel3d g_carmodels[32];
 extern int g_carmodels_count;
 
 extern float g_terrain[99000];
 extern char g_terrain_texId[6000];
-extern int g_terrain_texPkt[256];
+extern unsigned int g_terrain_texPkt[256];
 extern int g_fences[600];
 extern struct tnfs_object3d g_scenery_3d_objects[1];
 extern struct tnfs_scenery_descriptor g_scenery_models[64];
 extern struct tnfs_scenery_object g_scenery_object[1000];
-extern int g_scenery_texPkt[256];
-extern int g_horizon_texPkt[12];
+extern unsigned int g_scenery_texPkt[256];
+extern unsigned int g_horizon_texPkt[12];
 extern int g_scenery_models_count;
 extern int g_scenery_objects;
 
-extern int g_hud_texPkt[15];
-extern int g_smoke_texPkt[5];
-extern int g_dash_texPkt[10];
+extern unsigned int g_hud_texPkt[30];
+extern unsigned int g_smoke_texPkt[5];
+extern unsigned int g_dash_texPkt[10];
 extern tnfs_vec3 g_shadow_points[4];
 extern tnfs_vec9 g_shadow_matrix;
 

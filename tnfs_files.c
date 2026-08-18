@@ -29,14 +29,21 @@ short readSigned16(unsigned char *buffer, int pos) {
 int readTxtLine(char *output, int size, FILE *fp) {
 	char ch = 0;
 	int count = 0;
+	char end = 0;
 	memset(output, 0, size);
 	while(1) {
 		ch = fgetc(fp);
-		if (ch == '\r') ch = '\n';
-		output[count] = ch;
-		count++;
-		if (ch == '\n') break;
-		if (count == size) break;
+		if (ch == '\r' || ch == '\n') {
+			end = 1;
+		} else {
+			if (end) {
+				ungetc(ch, fp);
+				break;
+			}
+			if (count == size) break;
+			output[count] = ch;
+			count++;
+		}
 	}
 	return count;
 }
@@ -201,7 +208,7 @@ byte * openFileBuffer(char * filename, int * fileSize) {
 	return filedata;
 }
 
-void clearFileBuffer() {
+void file_clear_buffers() {
 	int i;
 	for (i = 0; i < file_counter; i++) {
 		if (g_file_assets[i].content) {
@@ -710,8 +717,8 @@ void parse_ori3_data(tnfs_object3d * model, byte * ori3, byte * shpm, byte inver
 	int verticesCount;
 	int polyCount;
 	float vertices[512];
-	int texIndex[128];
-	int texIdsGL[128];
+	unsigned int texIndex[128];
+	unsigned int texIdsGL[128];
 	int value, i, k;
 
 	unsigned char * obj;
@@ -954,7 +961,7 @@ int read_track_pkt_file(char * trackname) {
 			wpath[2] = g_lod_sequence[j];
 			obj = read_wwww(filedata, wpath, 3);
 			if (obj == 0) continue;
-			g_terrain_texPkt[i * 4 + k] = gfx_store_ccb((ccb_chunk *) obj, 0xFF);
+			g_terrain_texPkt[i * 4 + k] = gfx_store_ccb((CCB *) obj, 0xFF);
 			if (g_terrain_texPkt[i * 4 + k]) {
 				k++;
 			}
@@ -968,7 +975,7 @@ int read_track_pkt_file(char * trackname) {
 		obj = read_wwww(filedata, wpath, 2);
 		if (obj == 0) continue;
 		obj = seekNextCCB(obj);
-		g_scenery_texPkt[i] = gfx_store_ccb((ccb_chunk *) obj, 0xFF);
+		g_scenery_texPkt[i] = gfx_store_ccb((CCB *) obj, 0xFF);
 	}
 
 	// Group 2: Complex 3D scenery models
@@ -991,7 +998,7 @@ int read_track_pkt_file(char * trackname) {
 		wpath[0] = 3;
 		wpath[1] = i;
 		obj = read_wwww(filedata, wpath, 2);
-		g_horizon_texPkt[i] = gfx_store_ccb((ccb_chunk *) obj, 0xFF);
+		g_horizon_texPkt[i] = gfx_store_ccb((CCB *) obj, 0xFF);
 	}
 
 	// Group 4: Horizon textures (upper part)
@@ -999,7 +1006,7 @@ int read_track_pkt_file(char * trackname) {
 		wpath[0] = 4;
 		wpath[1] = i;
 		obj = read_wwww(filedata, wpath, 2);
-		g_horizon_texPkt[i + 6] = gfx_store_ccb((ccb_chunk *) obj, 0xFF);
+		g_horizon_texPkt[i + 6] = gfx_store_ccb((CCB *) obj, 0xFF);
 	}
 
 	printf("Loaded track PKT file %s.\n", filename);
@@ -1013,10 +1020,6 @@ void read_dash_constants(char *carname) {
 	int i;
 	char auxstr[120];
 	int align_bottom = 0;
-	float scaleX, scaleY;
-
-	scaleX = 320.0f / 340.0f;
-	scaleY = 240.0f / 260.0f;
 
 	g_dash_constants.num_panels = 0;
 
@@ -1056,19 +1059,19 @@ void read_dash_constants(char *carname) {
 			readTxtSkipLine(ptr);
 			readTxtSkipLine(ptr);
 			readTxtSkipLine(ptr);
-			g_dash_constants.speedo_pos_x = (readTxtInt(ptr) + 170) * scaleX;
+			g_dash_constants.speedo_pos_x = readTxtInt(ptr) + 170;
 			readTxtSkipLine(ptr);
-			g_dash_constants.speedo_pos_y = readTxtInt(ptr) * 0.9f + 220 + align_bottom;
+			g_dash_constants.speedo_pos_y = readTxtInt(ptr) + 240 + align_bottom;
 		}
 		if (strncmp((char*) &auxstr, "TACHO", 5) == 0) {
-			g_dash_constants.tacho_pos_x = (readTxtInt(ptr) + 170) * scaleX;
+			g_dash_constants.tacho_pos_x = readTxtInt(ptr) + 170;
 			readTxtSkipLine(ptr);
-			g_dash_constants.tacho_pos_y = readTxtInt(ptr) * 0.9f + 220 + align_bottom;
+			g_dash_constants.tacho_pos_y = readTxtInt(ptr) + 240 + align_bottom;
 		}
 		if (strncmp((char*) &auxstr, "REAR VIEW", 9) == 0) {
-			g_dash_constants.rear_view[0] = (readTxtInt(ptr) + 170) * scaleX;
+			g_dash_constants.rear_view[0] = readTxtInt(ptr) + 170;
 			readTxtSkipLine(ptr);
-			g_dash_constants.rear_view[1] = (260 - (readTxtInt(ptr) + 240)) * scaleY - 25 - align_bottom;
+			g_dash_constants.rear_view[1] = (260 - (readTxtInt(ptr) + 240)) - 45 - align_bottom;
 			break;
 		}
 	}
@@ -1080,7 +1083,7 @@ int read_hud_dash_file(char * carname) {
 	int i;
 	char filename[80];
 	int wpath[2] = { 3, 3 };
-	ccb_chunk * ccb;
+	CCB * ccb;
 	image_data * image;
 	int aux;
 
@@ -1091,28 +1094,50 @@ int read_hud_dash_file(char * carname) {
 	}
 
 	// tacho
-	ccb = (ccb_chunk*) read_wwww(dashfile, wpath, 2);
+	ccb = (CCB*) read_wwww(dashfile, wpath, 2);
 	g_hud_texPkt[13] = gfx_store_ccb(ccb, 0xAA);
 	wpath[1] = 4;
-	ccb = (ccb_chunk*) read_wwww(dashfile, wpath, 2);
+	ccb = (CCB*) read_wwww(dashfile, wpath, 2);
 	g_hud_texPkt[14] = gfx_store_ccb(ccb, 0x44);
+	wpath[1] = 5;
+	ccb = (CCB*) read_wwww(dashfile, wpath, 2);
+	g_hud_texPkt[15] = gfx_store_ccb(ccb, 0xFF);
+	wpath[1] = 6;
+	ccb = (CCB*) read_wwww(dashfile, wpath, 2);
+	g_hud_texPkt[16] = gfx_store_ccb(ccb, 0xFF);
 
-	// digits
+	// crashed banner
+	wpath[1] = 7;
+	ccb = (CCB*) read_wwww(dashfile, wpath, 2);
+	g_hud_texPkt[17] = gfx_store_ccb(ccb, 0xFF);
+	wpath[1] = 8;
+	ccb = (CCB*) read_wwww(dashfile, wpath, 2);
+	g_hud_texPkt[18] = gfx_store_ccb(ccb, 0xFF);
+
+	// banner numbers
+	for (i = 0; i < 10; i++) {
+		wpath[0] = 4;
+		wpath[1] = i;
+		ccb = (CCB*) read_wwww(dashfile, wpath, 2);
+		g_hud_texPkt[i + 20] = gfx_store_ccb(ccb, 0xFF);
+	}
+
+	// hud digits
 	for (i = 0; i < 10; i++) {
 		wpath[0] = 2;
 		wpath[1] = i;
-		ccb = (ccb_chunk*) read_wwww(dashfile, wpath, 2);
+		ccb = (CCB*) read_wwww(dashfile, wpath, 2);
 		g_hud_texPkt[i] = gfx_store_ccb(ccb, 0xFF);
 	}
 
 	// R, N
 	wpath[0] = 4;
 	wpath[1] = 10;
-	ccb = (ccb_chunk*) read_wwww(dashfile, wpath, 2);
+	ccb = (CCB*) read_wwww(dashfile, wpath, 2);
 	g_hud_texPkt[10] = gfx_store_ccb(ccb, 0xFF);
 	wpath[0] = 4;
 	wpath[1] = 11;
-	ccb = (ccb_chunk*) read_wwww(dashfile, wpath, 2);
+	ccb = (CCB*) read_wwww(dashfile, wpath, 2);
 	g_hud_texPkt[11] = gfx_store_ccb(ccb, 0xFF);
 
 	// dash
@@ -1130,7 +1155,7 @@ int read_hud_dash_file(char * carname) {
 	for (i = 0; i < g_dash_constants.num_panels; i++) {
 		wpath[0] = 1;
 		wpath[1] = i;
-		ccb = (ccb_chunk*) read_wwww(dashfile, wpath, 2);
+		ccb = (CCB*) read_wwww(dashfile, wpath, 2);
 		ccb_parse_header(ccb);
 		ccb_draw_to_buffer(image->rgba,
 				g_dash_constants.position[i].x + 170,
@@ -1143,7 +1168,7 @@ int read_hud_dash_file(char * carname) {
 	//steering wheel
 	wpath[0] = 1;
 	wpath[1] = g_dash_constants.num_panels + 2;
-	ccb = (ccb_chunk*) read_wwww(dashfile, wpath, 2);
+	ccb = (CCB*) read_wwww(dashfile, wpath, 2);
 	g_dash_texPkt[1] = gfx_store_ccb(ccb, 0xFF);
 
 	//shift panels
@@ -1153,7 +1178,7 @@ int read_hud_dash_file(char * carname) {
 		aux--;
 		wpath[0] = 1;
 		wpath[1] = aux;
-		ccb = (ccb_chunk*) read_wwww(dashfile, wpath, 2);
+		ccb = (CCB*) read_wwww(dashfile, wpath, 2);
 		g_dash_texPkt[i + 2] = gfx_store_ccb(ccb, 0xFF);
 	}
 
@@ -1163,7 +1188,7 @@ int read_hud_dash_file(char * carname) {
 int read_sim_common_art_file() {
 	int i;
 	int wpath[2] = { 0, 0 };
-	ccb_chunk * img;
+	CCB * img;
 
 	byte *artfile = openFileBuffer("DriveData/DriveArt/SimCommonArt.Fam", &i);
 	if (artfile == 0) {
@@ -1173,9 +1198,83 @@ int read_sim_common_art_file() {
 	// smoke puffs
 	for (i = 0; i < 4; i++) {
 		wpath[0] = i;
-		img = (ccb_chunk*) read_wwww(artfile, wpath, 1);
+		img = (CCB*) read_wwww(artfile, wpath, 1);
 		g_smoke_texPkt[i] = gfx_store_ccb(img, 0x22);
 	}
 
 	return 1;
 }
+
+/* high scores file */
+const char* g_cfg_file = "hiscores.txt";
+
+void file_highscores_read() {
+	FILE *file;
+	char buffer[100];
+	file = fopen(g_cfg_file,"r");
+	if (file) {
+		for (int i = 0; i < 10; i++) {
+			readTxtLine(buffer, 99, file);
+			sscanf(buffer, "%d;%d;%d;%d;%d;%d;%d;%s",
+					&g_hiscores[i].id,
+					&g_hiscores[i].skill,
+					&g_hiscores[i].track_id,
+					&g_hiscores[i].car_id,
+					&g_hiscores[i].score,
+					&g_hiscores[i].time,
+					&g_hiscores[i].max_speed,
+					(char*)&g_hiscores[i].name
+				);
+		}
+		for (int i = 0; i < 12; i++) {
+			readTxtLine(buffer, 99, file);
+			sscanf(buffer, "%d;%d;%d;%d;%d;%d;%d;%s",
+					&g_best_times[i].id,
+					&g_best_times[i].skill,
+					&g_best_times[i].track_id,
+					&g_best_times[i].car_id,
+					&g_best_times[i].score,
+					&g_best_times[i].time,
+					&g_best_times[i].max_speed,
+					(char*)&g_best_times[i].name
+				);
+		}
+
+		fclose(file);
+		printf("High scores file found: %s.\n", g_cfg_file);
+	}
+}
+
+void file_highscores_write() {
+	FILE *cfgfile;
+	cfgfile = fopen(g_cfg_file,"w");
+	if (cfgfile) {
+		for (int i = 0; i < 10; i++) {
+			fprintf(cfgfile, "%d;%d;%d;%d;%d;%d;%d;%s\r\n",
+				i, //g_hiscores[i].id,
+				g_hiscores[i].skill,
+				g_hiscores[i].track_id,
+				g_hiscores[i].car_id,
+				g_hiscores[i].score,
+				g_hiscores[i].time,
+				g_hiscores[i].max_speed,
+				g_hiscores[i].name
+				);
+		}
+		for (int i = 0; i < 12; i++) {
+			fprintf(cfgfile, "%d;%d;%d;%d;%d;%d;%d;%s\r\n",
+				i, //g_best_times[i].id,
+				g_best_times[i].skill,
+				g_best_times[i].track_id,
+				g_best_times[i].car_id,
+				g_best_times[i].score,
+				g_best_times[i].time,
+				g_best_times[i].max_speed,
+				g_best_times[i].name
+				);
+		}
+		fclose(cfgfile);
+		printf("High scores file saved: %s.\n", g_cfg_file);
+	}
+}
+

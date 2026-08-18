@@ -415,6 +415,12 @@ void tnfs_collision_main(tnfs_car_data *car) {
 	} else {
 		if (player_car_ptr == car) {
 			g_cam_change_delay = 0;
+			if (g_stats_data.cars_remaining > 0) {
+				g_stats_data.cars_remaining--;
+				g_toast_crash_time = 60;
+			} else {
+				g_quit_race = 1;
+			}
 		}
 		tnfs_reset_car(car);
 		return;

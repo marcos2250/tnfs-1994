@@ -23,7 +23,6 @@ void tnfs_menu_pause();
 
 int g_keybuffer[8];
 int g_keybuffer_count = 0;
-char quit = 0;
 char isFrontEnd = 1;
 char g_free_mode = 0;
 
@@ -130,10 +129,8 @@ void handleKeys() {
 	}
 }
 
-/* System events */
-
 void sys_sdl_exit() {
-	clearFileBuffer();
+	file_clear_buffers();
 	gfx_clear_buffers();
 	sfx_clear_buffers();
 
@@ -145,25 +142,27 @@ void sys_sdl_exit() {
 	exit(0);
 }
 
-/* Sim Mode */
+void sys_sdl_swapwindow() {
+	SDL_GL_SwapWindow(window);
+}
+
 void gfx_update() {
 	gfx_render_scene();
 	SDL_GL_SwapWindow(window);
 }
 
 void renderGlFrontEnd() {
+	glBindTexture(GL_TEXTURE_2D, 0);
 	glPixelZoom(SCREEN_SCALE, SCREEN_SCALE);
 	glDrawPixels(320, 240, GL_RGBA, GL_UNSIGNED_BYTE, &g_backbuffer);
 	SDL_GL_SwapWindow(window);
 }
 
 void sys_sdl_loop_frontend() {
-	quit = 0;
 	renderGlFrontEnd();
 	while (1) {
 		SDL_PollEvent(&event);
 		if (event.type == SDL_QUIT) {
-			quit = 1;
 			sys_sdl_exit();
 		}
 		handleKeys();
@@ -174,23 +173,62 @@ void sys_sdl_loop_frontend() {
 	}
 }
 
+void gfx_static_screen(char * file, char * label) {
+	byte * data;
+	shpm_image * image;
+	int filesize;
+
+	gfx_clear();
+	data = openFileBuffer(file, &filesize);
+	image = gfx_locateshape(data, label);
+	gfx_draw_shpm(image, 0, 0);
+	renderGlFrontEnd();
+	SDL_Delay(1000);
+}
+
+void toggle_s(int *current, int max, int inc) {
+	if (*current == 0 && inc < 0) {
+		*current = max;
+	} else {
+		*current += inc;
+		if (*current > max) {
+			*current = 0;
+		}
+	}
+}
+
+void toggle(int *current, int max, int inc) {
+	sfx_play_sound(2, 0, 0.5f, 1, 0);
+	toggle_s(current, max, inc);
+}
+
 void tnfs_race_enter() {
 	float a;
+
+	/* Loading... */
+	tnfs_ui_loading_screen(0);
+	renderGlFrontEnd();
 
 	gfx_clear_buffers();
 	sfx_clear_buffers();
 	tnfs_init_sim();
-	isFrontEnd = 0;
-	quit = 0;
-
 	sfx_init_sim(g_player_car);
+
+	SDL_Delay(1000);
+	tnfs_ui_loading_screen(1);
+	SDL_Delay(1000);
+	tnfs_ui_loading_screen(2);
+	SDL_Delay(1000);
+
 	SDL_PauseAudioDevice(audioDevice, 0);
 
+	isFrontEnd = 0;
+	g_quit_race = 0;
+
 	/* game main loop */
-	while(!quit) {
+	while(!g_quit_race) {
 		while (SDL_PollEvent(&event)) {
 			if (event.type == SDL_QUIT) {
-				quit = 1;
 				sys_sdl_exit();
 			}
 			handleKeys();
@@ -214,26 +252,15 @@ void tnfs_race_enter() {
 
 		if (player_car_ptr->field_4c9 > 150) {
 			if (player_car_ptr->track_slice < 0x10) {
-				quit = 1; // player give up
+				g_quit_race = 1; // player give up
 			} else {
-				quit = 0; // player finish track
+				g_quit_race = 0; // player finish track
 			}
 			break;
 		}
 
-		if (g_police_ticket_time) {
-			g_police_ticket_time--;
-			tnfs_ui_cop_ticket(g_police_speeding_ticket);
-			renderGlFrontEnd();
-			if (g_police_ticket_time == 0) {
-				//just reset player car
-				tnfs_reset_car(player_car_ptr);
-			}
-		} else {
-			tnfs_update();
-			gfx_update();
-		}
-
+		tnfs_update();
+		gfx_update();
 		SDL_Delay(30);
 	}
 
@@ -242,27 +269,82 @@ void tnfs_race_enter() {
 	isFrontEnd = 1;
 }
 
-void gfx_static_screen(char * file, char * label) { 
-	gfx_clear();
-	gfx_draw_3sh(file, label);
-	renderGlFrontEnd();
-	SDL_Delay(1000);
-}
+int tnfs_menu_credits() {
+	CCB *bgnd;
+	CCB *group;
+	CCB *credits[3];
+	CCB *display_bg;
+	char filename[80];
+	int time = 0;
+	int crew = 0;
+	int quit = 0;
+	int scroll;
+	int i;
 
-void toggle_s(int *current, int max, int inc) {
-	if (*current == 0 && inc < 0) {
-		*current = max;
-	} else {
-		*current += inc;
-		if (*current > max) {
-			*current = 0;
-		}
+	bgnd = LoadCel("frontend/display/credits/bgnd.cel", 0);
+	//stamp = LoadCel("frontend/display/credits/stamp.cel", 0);
+	group = LoadCel("frontend/display/credits/group.cel", 0);
+
+	for (i = 0; i < 3; i++) {
+		sprintf(filename, "frontend/display/credits/%d.cel", i + 1);
+		credits[i] = LoadCel(filename, 0);
 	}
-}
 
-void toggle(int *current, int max, int inc) {
-	sfx_play_sound(2, 0, 0.5f, 1, 0);
-	toggle_s(current, max, inc);
+	sfx_play_music(3);
+
+	while(1) {
+		if (time >= 2200 || quit) {
+			break;
+		}
+
+		switch (keys_getkey()) {
+		case SDLK_ESCAPE:
+			quit = 1;
+			break;
+		case SDLK_SPACE:
+			crew = crew ? 0 : 1;
+			break;
+		default:
+			break;
+		}
+		while (SDL_PollEvent(&event)) {
+			handleKeys();
+		}
+
+		scroll = 240 - time;
+		if (crew) {
+			display_bg = group;
+		} else {
+			display_bg = bgnd;
+		}
+		DrawScreenCels(0, display_bg);
+
+		credits[0]->ccb_XPos = 35;
+		credits[0]->ccb_YPos = scroll;
+		DrawScreenCels(0, credits[0]);
+
+		scroll += credits[0]->ccb_Height; //540;
+		credits[1]->ccb_XPos = 35;
+		credits[1]->ccb_YPos = scroll;
+		DrawScreenCels(0, credits[1]);
+
+		scroll += credits[1]->ccb_Height; //1310;
+		credits[2]->ccb_XPos = 35;
+		credits[2]->ccb_YPos = scroll;
+		DrawScreenCels(0, credits[2]);
+
+		DisplayScreen(0, 0);
+		SDL_Delay(30);
+		time++;
+	}
+
+	for (i = 0; i < 3; i++) {
+		UnloadCel(credits[i]);
+	}
+	UnloadCel(bgnd);
+	UnloadCel(group);
+	//UnloadCel(stamp);
+	return 1;
 }
 
 void tnfs_menu_pause() {
@@ -284,7 +366,7 @@ void tnfs_menu_pause() {
 				return;
 			}
 			if (option == 3) {
-				quit = 1;
+				g_quit_race = 1;
 				return;
 			}
 			break;
@@ -297,37 +379,6 @@ void tnfs_menu_pause() {
 		}
 		tnfs_ui_pause(option);
 		sys_sdl_loop_frontend();
-	}
-}
-
-void tnfs_menu_credits() {
-	int time = 0;
-	int crew = 0;
-
-	sfx_play_music(3);
-
-	while(1) {
-		if (time == 0x897) {
-			return;
-		}
-		time++;
-
-		switch (keys_getkey()) {
-		case SDLK_ESCAPE:
-			return;
-		case SDLK_SPACE:
-			toggle(&crew, 1, 1);
-			break;
-		default:
-			break;
-		}
-		tnfs_ui_credits(time, crew);
-
-		while (SDL_PollEvent(&event)) {
-			handleKeys();
-		}
-		renderGlFrontEnd();
-		SDL_Delay(30);
 	}
 }
 
@@ -426,7 +477,7 @@ int tnfs_menu_checkpoint() {
 			if (option == 3)
 				tnfs_menu_checkopts();
 			if (option == 5) {
-				quit = 1;
+				g_quit_race = 1;
 				return 0;
 			}
 			break;
@@ -529,6 +580,159 @@ void tnfs_menu_showcase() {
 	}
 }
 
+// insert new record into an ordered array list
+int tnfs_insert_record_score(int score) {
+	int i, c, n;
+	n = -1;
+	c = 10;
+	while (c--) {
+		i = c;
+		if (score > g_hiscores[i].score || g_hiscores[i].score == 0) {
+			n = i;
+			if (c < 9)
+				g_hiscores[i + 1] = g_hiscores[i]; // shift records to the right
+		} else {
+			break;
+		}
+	}
+	// place new record
+	if (n != -1) {
+		g_hiscores[n].track_id = g_track_sel;
+		g_hiscores[n].car_id = g_player_car;
+		g_hiscores[n].time = g_stats_data.route_time;
+		g_hiscores[n].max_speed = g_stats_data.top_speed;
+		g_hiscores[n].skill = g_config.skill_level;
+		g_hiscores[n].score = score;
+	}
+	return n;
+}
+
+int tnfs_insert_record_time() {
+	int i, c, n;
+	n = -1;
+	c = 3;
+	while (c--) {
+		i = (g_track_sel * 3) + c;
+		if (g_stats_data.route_time < g_best_times[i].time || g_best_times[i].time == 0) {
+			n = i;
+			if (c < 2)
+				g_best_times[i + 1] = g_best_times[i]; // shift records to the right
+		} else {
+			break;
+		}
+	}
+	// place new record
+	if (n != -1) {
+		g_best_times[n].track_id = g_track_sel;
+		g_best_times[n].car_id = g_player_car;
+		g_best_times[n].time = g_stats_data.route_time;
+		g_best_times[n].max_speed = g_stats_data.top_speed;
+		g_best_times[n].skill = g_config.skill_level;
+		g_best_times[n].score = 0;
+	}
+	return n;
+}
+
+int tnfs_insert_record_speed() {
+	int result;
+	if (g_stats_data.top_speed > g_best_times[g_track_sel * 3].max_speed) {
+		result = 0; // 1st, best top speed
+	} else {
+		result = -1; // no speed record
+	}
+	return result;
+}
+
+char * g_input_lcase = "abcdefghijklmnopqrstuvwxyz0123456789'-.   ";
+char * g_input_ucase = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789\"/()&*";
+char g_username[12];
+
+void tnfs_input_records() {
+	int idTime = 0;
+	int idScore = 0;
+	int idSpeed = 0;
+	int score = 0;
+	int uppercase = 0;
+	int cx = 0;
+	int cy = 0;
+	int len = 0;
+
+	if (g_config.skill_level > 3) return; // invalid score
+	if (g_quit_race) return; // player gave up
+
+	// not sure if scores are calculated this way
+	score = ( 40000 - g_stats_data.route_time )
+			+ ( g_stats_data.cars_crashed * -3000 )
+			+ ( g_stats_data.warning_count * -1000 )
+			+ ( g_stats_data.penalty_count * -5000 );
+
+	if (score <= 0) return;
+
+	idTime = tnfs_insert_record_time();
+	idScore = tnfs_insert_record_score(score);
+	idSpeed = tnfs_insert_record_speed();
+
+	if (idTime < 0 && idScore < 0) {
+		return; //no record to save
+	}
+
+	memset(g_username, '\0', 12);
+
+	while(1) {
+		switch (keys_getkey()) {
+		case SDLK_RIGHT:
+			toggle(&cx, 6, +1);
+			break;
+		case SDLK_LEFT:
+			toggle(&cx, 6, -1);
+			break;
+		case SDLK_UP:
+			toggle(&cy, 5, -1);
+			break;
+		case SDLK_DOWN:
+			toggle(&cy, 5, +1);
+			break;
+		case SDLK_a:
+			uppercase = 1;
+			break;
+		case SDLK_z:
+			uppercase = 0;
+			break;
+		case SDLK_SPACE:
+			if (uppercase == 0 && cy == 5 && cx == 6) { //end
+				g_username[len] = '\0';
+				if (idTime >= 0) {
+					strcpy(g_best_times[idTime].name, g_username);
+				}
+				if (idScore >= 0) {
+					strcpy(g_hiscores[idScore].name, g_username);
+				}
+				file_highscores_write();
+				return;
+			} else if (uppercase == 0 && cy == 5 && cx == 5) { //backspace
+				if (len > 0) len--;
+			} else if (len < 10) {
+				if (uppercase) {
+					g_username[len] = g_input_ucase[cy * 7 + cx];
+				} else {
+					g_username[len] = g_input_lcase[cy * 7 + cx];
+				}
+				len++;
+			}
+			g_username[len] = '_';
+			g_username[len+1] = '\0';
+			break;
+		case SDLK_ESCAPE:
+			return;
+		default:
+			break;
+		}
+		gfx_clear();
+		tnfs_ui_userinput(idTime, idScore, idSpeed, cx, cy, uppercase, (char*)&g_username);
+		sys_sdl_loop_frontend();
+	}
+}
+
 void tnfs_menu_route() {
 	gfx_clear();
 	sfx_play_speech_track(g_track_sel);
@@ -559,48 +763,57 @@ void tnfs_menu_route() {
 	}
 }
 
-void tnfs_loading_screen() {
-	int i;
-	for (i = 0; i < 3; i++) {
-		tnfs_ui_loading_screen(i);
-		renderGlFrontEnd();
-		SDL_Delay(1000);
-	}
-}
-
 void tnfs_menu_drive_start() {
-	quit = 0;
 	SDL_PauseAudioDevice(audioDevice, 1);
 
+	g_stats_data.segment_time = 0;
+	g_stats_data.route_time = 0;
+	g_stats_data.top_speed = 0;
+	g_stats_data.top_speed_2 = 0;
+	g_stats_data.cars_crashed = 0;
+	g_stats_data.cars_remaining = 2;
+	g_stats_data.penalty_count = 0;
+	g_stats_data.warning_count = 0;
+
+	g_quit_race = 0;
 	g_track_segment = 0;
-	tnfs_loading_screen();
 	tnfs_race_enter();
-	if (!quit) {
+	if (!g_quit_race) {
+		g_stats_data.segment_time = iSimTimeClock;
+		g_stats_data.route_time += g_stats_data.segment_time;
 		tnfs_menu_checkpoint();
 	}
 
-	if (!quit) {
+	if (!g_quit_race) {
 		g_track_segment = 1;
-		tnfs_loading_screen();
 		tnfs_race_enter();
 	}
-	if (!quit) {
+	if (!g_quit_race) {
+		g_stats_data.segment_time = iSimTimeClock;
+		g_stats_data.route_time += g_stats_data.segment_time;
 		tnfs_menu_checkpoint();
 	}
 
-	if (!quit) {
+	if (!g_quit_race) {
 		g_track_segment = 2;
-		tnfs_loading_screen();
 		tnfs_race_enter();
 	}
-	if (!quit) {
+	if (!g_quit_race) {
+		g_stats_data.segment_time = iSimTimeClock;
+		g_stats_data.route_time += g_stats_data.segment_time;
 		tnfs_menu_finish();
+		tnfs_input_records();
 	}
 
 	sfx_init_frontend();
 	sfx_play_sound(0, 1, 1, 1, 0);
 	SDL_PauseAudioDevice(audioDevice, 0);
 }
+
+int g_cc_menu_up[5]    = { 1, 0, 4, 1, 2 };
+int g_cc_menu_down[5]  = { 1, 0, 4, 0, 2 };
+int g_cc_menu_left[5]  = { 3, 2, 1, 4, 0 };
+int g_cc_menu_right[5] = { 4, 2, 1, 0, 3 };
 
 void tnfs_menu_control() {
 	int option = 0;
@@ -610,16 +823,20 @@ void tnfs_menu_control() {
 	while(1) {
 		switch (keys_getkey()) {
 		case SDLK_UP:
-			toggle(&option, 4, +1);
+			sfx_play_sound(2, 0, 0.5f, 1, 0);
+			option = g_cc_menu_up[option];
 			break;
 		case SDLK_RIGHT:
-			toggle(&option, 4, +1);
+			sfx_play_sound(2, 0, 0.5f, 1, 0);
+			option = g_cc_menu_right[option];
 			break;
 		case SDLK_DOWN:
-			toggle(&option, 4, -1);
+			sfx_play_sound(2, 0, 0.5f, 1, 0);
+			option = g_cc_menu_down[option];
 			break;
 		case SDLK_LEFT:
-			toggle(&option, 4, -1);
+			sfx_play_sound(2, 0, 0.5f, 1, 0);
+			option = g_cc_menu_left[option];
 			break;
 		case SDLK_RETURN:
 			sfx_play_sound(1, 0, 0.5f, 1, 0);
@@ -632,6 +849,15 @@ void tnfs_menu_control() {
 			if (option == 4)
 				tnfs_menu_options();
 			break;
+		case SDLK_a:
+			if (option == 1)
+				toggle(&g_player_car, 7, -1);
+			if (option == 2)
+				toggle(&g_track_sel, 3, -1);
+			if (option == 3)
+				toggle(&g_opp_car, 8, -1);
+			break;
+		case SDLK_z:
 		case SDLK_SPACE: 
 			if (option == 1)
 				toggle(&g_player_car, 7, 1);
@@ -660,22 +886,61 @@ void tnfs_init_config() {
     g_config.control = 0;
 
 	for (i = 0; i < 10; i++) {
-		g_game_stats[i].id = i;
-		strcpy(g_game_stats[i].name, "Racer");
-		g_game_stats[i].car_id = (i * 3) & 4;
-		g_game_stats[i].track_id = (i * 7) & 2;
-		g_game_stats[i].score = 1000000 - (i * 7337);
-		g_game_stats[i].skill = i & 2;
+		g_hiscores[i].id = i;
+		g_hiscores[i].name[0] = 0;
+		g_hiscores[i].car_id = 0;
+		g_hiscores[i].track_id = 0;
+		g_hiscores[i].score = 0;
+		g_hiscores[i].skill = 0;
+		g_hiscores[i].time = 0;
+		g_hiscores[i].max_speed = 0;
+	}
+	for (i = 0; i < 12; i++) {
+		g_best_times[i].id = i;
+		g_best_times[i].name[0] = 0;
+		g_best_times[i].car_id = 0;
+		g_best_times[i].track_id = 0;
+		g_best_times[i].score = 0;
+		g_best_times[i].skill = 0;
+		g_best_times[i].time = 0;
+		g_best_times[i].max_speed = 0;
 	}
 
-	for (i = 0; i < 4; i++) {
-		g_track_stats[i].id = i;
-		strcpy(g_track_stats[i].name, "Racer");
-		g_track_stats[i].car_id = (i * 3) & 4;
-		g_track_stats[i].time = 1000000 - (i * 8239);
-		g_track_stats[i].skill = i & 2;
-		g_track_stats[i].max_speed = 240 - (i * 18);
-	}
+	strcpy(g_best_times[0].name, "Daredevil");
+	g_best_times[0].time = 26619;
+	g_best_times[0].max_speed = 5103575; //174,2 mph
+	g_best_times[0].car_id = 4;
+	g_best_times[0].skill = 2;
+	strcpy(g_best_times[3].name, "Daredevil");
+	g_best_times[3].time = 24498;
+	g_best_times[3].max_speed = 4142626; //141,4 mph
+	g_best_times[3].car_id = 4;
+	g_best_times[3].skill = 2;
+	strcpy(g_best_times[6].name, "Daredevil");
+	g_best_times[6].time = 20112;
+	g_best_times[6].max_speed = 5481509; //187,1 mph
+	g_best_times[6].car_id = 4;
+	g_best_times[6].skill = 2;
+	strcpy(g_best_times[9].name, "Daredevil");
+	g_best_times[9].time = 20000;
+	g_best_times[9].max_speed = 6000000;
+	g_best_times[9].car_id = 4;
+	g_best_times[9].skill = 2;
+
+	strcpy(g_hiscores[0].name, "Daredevil");
+	g_hiscores[0].score = 19490;
+	g_hiscores[0].car_id = 4;
+	g_hiscores[0].skill = 2;
+	strcpy(g_hiscores[1].name, "Daredevil");
+	g_hiscores[1].score = 18741;
+	g_hiscores[1].car_id = 2;
+	g_hiscores[1].skill = 2;
+	strcpy(g_hiscores[2].name, "Daredevil");
+	g_hiscores[2].score = 18469;
+	g_hiscores[2].car_id = 4;
+	g_hiscores[2].skill = 2;
+
+	file_highscores_read();
 }
 
 void tnfs_game_main() {
@@ -695,7 +960,7 @@ byte testpath[] = {3, 4};
 int g_wpath_result[8];
 char g_fv_msg[80];
 
-char * g_files[] = {
+char * g_viewer_files[] = {
 			"frontend/display/pioneer.3sh", //shpm linear
 			"frontend/display/TITLE.3SH", //shpm packed
 			"frontend/display/ctrlcars.3sh", //shpm packed
@@ -704,6 +969,7 @@ char * g_files[] = {
 			"frontend/display/credits/1.cel", //ccb packed palette
 			"DriveData/CarData/LDIABLO.s1", //ccb linear
 			"DriveData/CarData/MRX7.WrapFam", //shpm linear palette
+			"DriveData/CarData/ANSX.WrapFam",
 			"DriveData/CarData/CopMust.WrapFam",
 			"DriveData/CarData/CZR1.BigdashFam",
 			"DriveData/DriveArt/SimCommonArt.Fam", //ccb packed palette no shade
@@ -729,9 +995,9 @@ void fileView_scan_file(int id) {
 	if (fileView_data != 0) {
 		free(fileView_data);
 	}
-	fileView_data = openFile(g_files[id], &size);
+	fileView_data = openFile(g_viewer_files[id], &size);
 	if (fileView_data == 0) {
-		printf("File error %s\n", g_files[id]);
+		printf("File error %s\n", g_viewer_files[id]);
 		return;
 	}
 	printf("Scanning file with %d bytes for images...\n", size);
@@ -743,7 +1009,6 @@ void fileView_scan_file(int id) {
 			texCount++;
 		}
 		if (obj[0] == 'S' && obj[1] == 'H' && obj[2] == 'P' && obj[3] == 'M') {
-			gfx_set_filedata(obj);
 			numShapes = obj[11] + (obj[10] << 8);
 			obj += 0x10;
 
@@ -765,7 +1030,7 @@ void fileView_scan_file(int id) {
 	printf("found %d objects.\n", texCount);
 	objectSel = 0;
 	fileView_drawImage(fileView_data, objectIds[0]);
-	gfx_draw_text_9500(g_files[id], 10, 10);
+	gfx_draw_text_9500(g_viewer_files[id], 10, 10);
 }
 
 void fileView_seekImage(int * pos, int direction) {
@@ -813,8 +1078,8 @@ void fileView_sfx_screen(int id) {
 
 void fileViewer_main() {
 	int pos = 0;
-	int id = 12;
-	int fileView_count = 20;
+	int id = 0;
+	int fileView_count = sizeof(g_viewer_files);
 	fileView_scan_file(id);
 
 	gfx_draw_text_9500("PgUp/PgDn:chg.files L/R/Up/Dn:seek Esc:back", 10, 210);
@@ -923,6 +1188,7 @@ void initial_menu() {
 }
 
 int main(int argc, char **argv) {
+    SDL_AudioSpec desiredSpec, obtainedSpec;
 
 	if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) < 0) {
 		printf("SDL could not be initialized! SDL_Error: %s\n", SDL_GetError());
@@ -950,18 +1216,17 @@ int main(int argc, char **argv) {
 		printf("GL Context could not be created! SDL_Error: %s\n", SDL_GetError());
 	}
 
-    SDL_AudioSpec desiredSpec, obtainedSpec;
-    desiredSpec.freq = 44100;
-    desiredSpec.format = AUDIO_S16SYS; // Signed 16-bit audio, system endian
-    desiredSpec.channels = 2; // 1 Mono/2 Stereo
-    desiredSpec.samples = 0; // Buffer size (power of 2)
-    desiredSpec.callback = (void*) sfx_sdl_audio_callback;
-    desiredSpec.userdata = NULL;
+	desiredSpec.freq = 44100;
+	desiredSpec.format = AUDIO_S16SYS; // Signed 16-bit audio, system endian
+	desiredSpec.channels = 2; // 1 Mono/2 Stereo
+	desiredSpec.samples = 0; // Buffer size (power of 2)
+	desiredSpec.callback = (void*) sfx_sdl_audio_callback;
+	desiredSpec.userdata = NULL;
 
-    audioDevice = SDL_OpenAudioDevice(NULL, 0, &desiredSpec, &obtainedSpec, 0);
-    if (audioDevice == 0) {
-    	printf("Audio device could not be created! SDL_Error: %s\n", SDL_GetError());
-    }
+	audioDevice = SDL_OpenAudioDevice(NULL, 0, &desiredSpec, &obtainedSpec, 0);
+	if (audioDevice == 0) {
+		printf("Audio device could not be created! SDL_Error: %s\n", SDL_GetError());
+	}
 
 	glViewport(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
 	glClearColor(1.f, 1.f, 1.f, 0.f);
@@ -972,14 +1237,12 @@ int main(int argc, char **argv) {
 	glEnable(GL_TEXTURE_2D);
 	glColor3f(0.0f, 0.0f, 0.0f);
 
-	if (!gfx_init_stuff()) {
-		sys_sdl_exit();
-		return 0;
+	gfx_set_display_callback(sys_sdl_swapwindow);
+
+	if (gfx_init_stuff()) {
+		tnfs_init_config();
+		initial_menu();
 	}
-
-	tnfs_init_config();
-
-	initial_menu();
 
 	sys_sdl_exit();
 	return 0;

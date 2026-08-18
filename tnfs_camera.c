@@ -46,7 +46,7 @@ void tnfs_camera_init() {
 	g_camera_specs[2].focal_distance.y = 0x2E000;
 	g_camera_specs[2].focal_distance.z = -0x88000;
 	g_camera_specs[2].back_distance = 0x140000;
-	g_camera_specs[2].id3 = 1;
+	g_camera_specs[2].id3 = 0;
 	g_camera_specs[2].next_id = 3;
 	g_camera_specs[2].smoothness = 3;
 	g_camera_specs[2].transition_delay = 20;
@@ -219,6 +219,7 @@ void tnfs_camera_update(tnfs_camera *camera) {
 		return;
 	}
 
+	/*
 	if (camera->id == 3) {
 		simpleCamera(1);
 		return;
@@ -226,6 +227,7 @@ void tnfs_camera_update(tnfs_camera *camera) {
 		simpleCamera(2);
 		return;
 	}
+	*/
 
 	// drone cam
 	if (specs->id3 != 0) {

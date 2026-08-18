@@ -190,6 +190,8 @@ void sfx_load_file_into_channel(char * filename, int channelId) {
 	int fileSize = 0;
 	int out_length = 0;
 	g_sounds[channelId].play = 0;
+	g_sounds[channelId].playback_pos = 0;
+	g_sounds[channelId].length = 0;
 
 	if (g_sounds[channelId].data) {
 		free(g_sounds[channelId].data);

@@ -8,17 +8,18 @@
 #include "tnfs_files.h"
 #include "ccb.h"
 
-const int SCREEN_WIDTH = 1280; //800;
-const int SCREEN_HEIGHT = 960; //600;
-const float SCREEN_SCALE = 4; //2.5;
+const int SCREEN_WIDTH = 1280; //320;
+const int SCREEN_HEIGHT = 960; //240;
+const float SCREEN_SCALE = 4; //1;
 
 byte g_backbuffer[307200];
-shpm_image * g_shape; 
 byte g_fontdata[4464];
-byte * g_filedata;
 int g_filesize = 0;
 
-unsigned int g_tex_count = 0;
+unsigned int g_tex_count_lo = 0;
+unsigned int g_tex_count_hi = 0;
+
+void (*_sdl_display_callback)();
 
 GLfloat matrix[16] = { 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1 };
 vector3f cam_orientation = { 0, 0, 0 };
@@ -38,6 +39,180 @@ int gfx_init_stuff() {
 		return 0;
 	};
 	fclose(fileptr);
+	return 1;
+}
+
+void gfx_set_display_callback(void (*func)(void)) {
+	_sdl_display_callback = func;
+}
+
+void gfx_clear_buffers() {
+	unsigned int i;
+	unsigned int texId;
+	glBindTexture(GL_TEXTURE_2D, 0);
+	for (i = g_tex_count_lo; i <= g_tex_count_hi; i++) {
+		if (glIsTexture(i)) {
+			texId = i;
+			glDeleteTextures(1, &texId);
+		}
+	}
+	g_tex_count_lo = (unsigned int)-1;
+	g_tex_count_hi = 0;
+	glFlush();
+}
+
+unsigned int gfx_store_texture(image_data * image) {
+	GLuint texId = 0;
+	glGenTextures(1, &texId);
+	glBindTexture(GL_TEXTURE_2D, texId);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, image->width, image->height, 0, GL_RGBA, GL_UNSIGNED_BYTE, image->rgba);
+	if (texId > g_tex_count_hi) g_tex_count_hi = texId;
+	if (texId < g_tex_count_lo) g_tex_count_lo = texId;
+	return texId;
+}
+
+/* 3DO Library functions */
+
+CCB * ParseCel(void *inBuf, int32 inBufSize) {
+	unsigned int id;
+	image_data * image;
+	CCB * input;
+	CCB * output;
+
+	input = (CCB*)inBuf;
+	image = ccb_image_convert(input);
+	id = gfx_store_texture(image);
+
+	output = malloc(sizeof(CCB));
+	output->ccb_version = id; //use field to store GL's texture id
+	output->ccb_Width = image->width;
+	output->ccb_Height = image->height;
+	output->ccb_XPos = bswap16(input->ccb_XPos);
+	output->ccb_YPos = bswap16(input->ccb_YPos);
+	output->ccb_HDX = bswap16(input->ccb_HDX);
+	output->ccb_HDY = bswap16(input->ccb_HDY);
+	output->ccb_VDX = bswap16(input->ccb_VDX);
+	output->ccb_VDY = bswap16(input->ccb_VDY);
+	output->ccb_DDX = bswap16(input->ccb_DDX);
+	output->ccb_DDY = bswap16(input->ccb_DDY);
+
+	return output;
+}
+
+CCB * LoadCel (char *filename, uint32 memTypeBits) {
+	int size;
+	CCB * input;
+	CCB * output;
+
+	input = (CCB*)openFileBuffer(filename, &size);
+	output = ParseCel(input, 0);
+
+	return output;
+}
+
+void UnloadCel(CCB * cel) {
+	unsigned int id = cel->ccb_version;
+	glBindTexture(GL_TEXTURE_2D, 0);
+	if (glIsTexture(id)) {
+		glDeleteTextures(1, &id);
+	}
+	glFlush();
+	free(cel);
+}
+
+Err DrawScreenCels(Item screenItem, CCB *cel) {
+	int top, left;
+	float hdx, hdy, vdx, vdy, ddx, ddy, aux_d;
+	int x0, y0, x1, y1, x2, y2, x3, y3;
+
+	top = cel->ccb_YPos;
+	if (cel->ccb_YPos > 0x10000) {
+		top >>= 16;
+	}
+
+	left = cel->ccb_XPos;
+	if (cel->ccb_XPos > 0x10000) { //if 16.16
+		left >>= 16;
+	}
+
+	if (cel->ccb_HDX <= 0x10) {
+		hdx = 1;
+	} else {
+		hdx = ((float)cel->ccb_HDX) / 0x100000;
+	}
+
+	hdy = ((float)cel->ccb_HDY) / 0x100000;
+	vdx = ((float)cel->ccb_VDX) / 0x10000;
+
+	if (cel->ccb_VDY <= 0x10) {
+		vdy = 1;
+	} else {
+		vdy = ((float)cel->ccb_VDY) / 0x10000;
+	}
+
+	ddx = ((float)cel->ccb_DDX) / 0x10000;
+	ddy = ((float)cel->ccb_DDY) / 0x10000;
+
+	hdx *= cel->ccb_Width;
+	hdy *= cel->ccb_Width;
+	vdx *= cel->ccb_Height;
+	vdy *= cel->ccb_Height;
+	aux_d = cel->ccb_Height * cel->ccb_Width;
+	ddx *= aux_d;
+	ddy *= aux_d;
+
+	x0 = left;
+	y0 = top;
+
+	x1 = left + hdx;
+	y1 = top + hdy;
+
+	x2 = left + vdx + hdx + ddx;
+	y2 = top + vdy + hdy + ddy;
+
+	x3 = left + vdx;
+	y3 = top + vdy;
+
+	glEnable(GL_BLEND);
+
+	// draw quad
+	glMatrixMode(GL_PROJECTION);
+	glLoadIdentity();
+	glViewport(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
+	glOrtho(0.0, SCREEN_WIDTH, SCREEN_HEIGHT, 0.0, -1.0, 10.0);
+	glMatrixMode(GL_MODELVIEW);
+	glLoadIdentity();
+
+	glPolygonMode(GL_FRONT, GL_FILL);
+	glBindTexture(GL_TEXTURE_2D, cel->ccb_version); //texId
+	glColor3f(1,1,1);
+
+	x0*=SCREEN_SCALE; y0*=SCREEN_SCALE;
+	x1*=SCREEN_SCALE; y1*=SCREEN_SCALE;
+	x2*=SCREEN_SCALE; y2*=SCREEN_SCALE;
+	x3*=SCREEN_SCALE; y3*=SCREEN_SCALE;
+
+	glBegin(GL_TRIANGLE_STRIP);
+	glTexCoord2d(0, 0);
+	glVertex3f(x0, y0, 0);
+	glTexCoord2d(1, 0);
+	glVertex3f(x1, y1, 0);
+	glTexCoord2d(0, 1);
+	glVertex3f(x3, y3, 0);
+	glTexCoord2d(1, 1);
+	glVertex3f(x2, y2, 0);
+	glEnd();
+
+	glDisable(GL_BLEND);
+	return 1;
+}
+
+Err DisplayScreen(Item screenItem0, Item screenItem1) {
+	_sdl_display_callback();
 	return 1;
 }
 
@@ -66,8 +241,8 @@ shpm_image * gfx_locateshape(byte *data, char *shapeid) {
 	return 0;
 }
 
-void gfx_readshape_9444(byte * data, char * label) {
-	g_shape = gfx_locateshape(data, label);
+shpm_image * gfx_readshape_9444(byte * data, char * label) {
+	return gfx_locateshape(data, label);
 }
 
 void gfx_clear() {
@@ -94,20 +269,17 @@ void gfx_write_alpha_channel(byte *data, int size, byte alpha) {
 }
 
 byte * gfx_openfile_9594(char * filename, int mode) {
-	g_filedata = openFileBuffer(filename, &g_filesize);
-	return g_filedata;
-}
-
-byte * gfx_openfile_96ec(char * filename, int mode) {
-	g_filedata = openFileBuffer(filename, &g_filesize);
-	return g_filedata;
-}
-
-void gfx_set_filedata(byte * ptr) {
-	g_filedata = ptr;
+	return openFileBuffer(filename, &g_filesize);
 }
 
 /*** FRONTEND UI ***/
+
+void gfx_draw_ccb(CCB *ccb) {
+	if (!ccb_parse_header(ccb)) {
+		return;
+	}
+	ccb_draw_to_buffer((byte*) &g_backbuffer, ccb->ccb_XPos, ccb->ccb_YPos, 320, 240, 1);
+}
 
 void gfx_draw_shpm(shpm_image * shpm, int posX, int posY) {
 	if (!shpm_parse_header(shpm)) {
@@ -116,56 +288,35 @@ void gfx_draw_shpm(shpm_image * shpm, int posX, int posY) {
 	ccb_draw_to_buffer((byte*) &g_backbuffer, posX, posY, 320, 240, 1);
 }
 
-void gfx_draw_ccb(ccb_chunk *ccb, int left, int top) {
-	if (!ccb_parse_header(ccb)) {
-		return;
-	}
-	ccb_draw_to_buffer((byte*) &g_backbuffer, left, top, 320, 240, 1);
-}
-
-void gfx_draw_3sh(char * file, char * label) {
-	gfx_clear();
-	g_filedata = openFileBuffer(file, &g_filesize);
-	g_shape = gfx_locateshape(g_filedata, label);
-	gfx_draw_shpm(g_shape, 0, 0);
-}
-
-void gfx_draw_cel(char * file) { 
-	gfx_clear();
-	g_filedata = openFileBuffer(file, &g_filesize);
-	gfx_draw_ccb((ccb_chunk*) g_filedata, 0, 0);
-}
-
-void gfx_drawshape_94f4() {
+void gfx_drawshape_94f4(shpm_image * shape, short x, short y) {
 	short top, left;
-	left = bswap16(g_shape->left_le);
-	top = bswap16(g_shape->top_le);
-	gfx_draw_shpm(g_shape, left, top);
+	left = bswap16(x);
+	top = bswap16(y);
+	gfx_draw_shpm(shape, left, top);
 }
 
-//void gfx_drawshape_94f4_at(cel_bitmap * cel, int left, int top) {
-void gfx_drawshape_94f4_at(int left, int top) {
-	gfx_draw_shpm(g_shape, left, top);
+void gfx_drawshape_94f4_at(shpm_image * shape, short x, short y) {
+	gfx_draw_shpm(shape, x, y);
 }
 
-void gfx_drawshape_950c() {
+void gfx_drawshape_950c(shpm_image * shape, short x, short y) {
 	short top, left;
-	left = bswap16(g_shape->left_le);
-	top = bswap16(g_shape->top_le);
-	gfx_draw_shpm(g_shape, left, top);
+	left = bswap16(x);
+	top = bswap16(y);
+	gfx_draw_shpm(shape, left, top);
 }
 
-void gfx_drawshape_95a0() {
-	gfx_draw_shpm(g_shape, 0, 0);
-}
-
-void gfx_drawshape_96f8(shpm_image * shape) {
-	gfx_draw_shpm(shape, 0, 0);
+void gfx_drawshape_95a0(shpm_image * shape, short x, short y) {
+	short top, left;
+	left = bswap16(x);
+	top = bswap16(y);
+	gfx_draw_shpm(shape, left, top);
 }
 
 void fileView_drawImage(byte * file, int pos) {
+	short width, height, top, left;
 	shpm_image * shape;
-	ccb_chunk * ccb;
+	CCB * ccb;
 	byte * obj = file;
 	obj += pos;
 
@@ -175,13 +326,26 @@ void fileView_drawImage(byte * file, int pos) {
 	glClear(GL_COLOR_BUFFER_BIT);
 
 	if (obj[0] == 'C' && obj[1] == 'C' && obj[2] == 'B') {
-		printf("CCB at 0x%x\n", pos);
-		ccb = (ccb_chunk*) obj;
-		gfx_draw_ccb(ccb, 0, -990);
+		printf("CCB at 0x%x:\n", pos);
+		ccb = (CCB*) obj;
+
+		width = bswap16(ccb->ccb_Width);
+		height = bswap16(ccb->ccb_Height);
+		ccb->ccb_XPos = (320 - width) / 2;
+		ccb->ccb_YPos = (240 - height) / 2;
+
+		printf("image %d x %d:\n", width, height);
+		gfx_draw_ccb(ccb);
 	} else {
 		printf("SHPM at 0x%x\n", pos);
 		shape = (shpm_image*) obj;
-		gfx_draw_shpm(shape, 0, -990);
+
+		width = bswap16(shape->width_le);
+		height = bswap16(shape->height_le);
+		left = (320 - width) / 2;
+		top = (240 - height) / 2;
+
+		gfx_draw_shpm(shape, left, top);
 	}
 }
 
@@ -248,34 +412,7 @@ void gfx_draw_text_9500(char *text, int x, int y) {
 
 /*** SIM MODE ***/
 
-// clear texture buffers
-void gfx_clear_buffers() {
-	unsigned int i = g_tex_count;
-	unsigned int texId = 0;
-	glBindTexture(GL_TEXTURE_2D, 0);
-	while (i--) {
-		if (glIsTexture(i)) {
-			texId = i;
-			glDeleteTextures(1, &texId);
-		}
-	}
-	glFlush();
-}
-
-int gfx_store_texture(image_data * image) {
-	unsigned int texId = 0;
-	glGenTextures(1, &texId);
-	glBindTexture(GL_TEXTURE_2D, texId);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, image->width, image->height, 0, GL_RGBA, GL_UNSIGNED_BYTE, image->rgba);
-	if (texId > g_tex_count) g_tex_count = texId;
-	return texId;
-}
-
-int gfx_store_shpm_group(byte * shpm, int * texIdsGL) {
+int gfx_store_shpm_group(byte * shpm, unsigned int * texIdsGL) {
 	byte * obj;
 	byte * tex = 0;
 	image_data * data = 0;
@@ -322,9 +459,9 @@ int gfx_store_shpm_group(byte * shpm, int * texIdsGL) {
 	return numEntries;
 }
 
-int gfx_store_ccb(ccb_chunk *ccb, byte alpha) {
+unsigned int gfx_store_ccb(CCB *ccb, byte alpha) {
 	image_data * data = 0;
-	int id = 0;
+	unsigned int id = 0;
 	if (ccb == 0 || ccb->id[0] != 'C' || ccb->id[1] != 'C' || ccb->id[2] != 'B' || ccb->id[3] != ' ') {
 		printf("gfx_store_ccb: Not a CCB file!\n");
 		return 0;
@@ -462,7 +599,7 @@ void gfx_drawShadows() {
 
 int wheelAnim = 0;
 
-int gfx_getWheelTexture(tnfs_car_data * car, tnfs_carmodel3d * carModel, int isFront) {
+unsigned int gfx_getWheelTexture(tnfs_car_data * car, tnfs_carmodel3d * carModel, int isFront) {
 	if (wheelAnim < -0x100000) wheelAnim = 0x100000;
 	wheelAnim -= car->speed;
 	if (isFront) {
@@ -533,7 +670,7 @@ void gfx_drawCarWheel(tnfs_car_data * car, tnfs_carmodel3d * carModel, int isFro
 void gfx_drawVehicle(tnfs_car_data * car) {
 	tnfs_carmodel3d * carModel;
 	tnfs_polygon * poly;
-	int textureId;
+	unsigned int textureId;
 	int i;
 
 	// TNFS uses LHS, convert to OpenGL's RHS
@@ -617,7 +754,7 @@ void gfx_drawVehicle(tnfs_car_data * car) {
 
 void gfx_drawHorizon() {
 	int layer;
-	int texture;
+	unsigned int texture;
 	int i, d;
 	float a, x1, x2, y1, y2, z1, z2;
 
@@ -686,7 +823,8 @@ void gfx_drawHorizon() {
 
 void gfx_drawSimpleObject(tnfs_scenery_object * object) {
 	tnfs_scenery_descriptor * model;
-	float w, h, t;
+	float w, h;
+	unsigned int t;
 	model = &g_scenery_models[object->object_model_id];
 
 	glMatrixMode(GL_MODELVIEW);
@@ -782,7 +920,8 @@ void gfx_drawObject(tnfs_scenery_object * object) {
 void gfx_drawRoad(int isMirror) {
 	int x;
 	int p1, p2;
-	int chunk, strip, slice, texture;
+	int chunk, strip, slice;
+	unsigned int texture;
 	int chunk_increment;
 	int count;
 	int i;
@@ -928,7 +1067,7 @@ void gfx_drawRoad(int isMirror) {
 	glBindTexture(GL_TEXTURE_2D, 0);
 }
 
-void gfx_drawSprite(int x1, int y1, int x2, int y2, int texId) {
+void gfx_drawSprite(int x1, int y1, int x2, int y2, unsigned int texId) {
 	x1 *= SCREEN_SCALE;
 	x2 *= SCREEN_SCALE;
 	y1 *= SCREEN_SCALE;
@@ -956,19 +1095,23 @@ void gfx_draw_hud() {
 	float c,s,r;
 	int v;
 
-	glMatrixMode(GL_PROJECTION);
+	glViewport(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
+	gluPerspective(90.0, 1.0, 0.1, 10);
+	glClear(GL_DEPTH_BUFFER_BIT);
+	glDisable(GL_DEPTH_TEST);
+    glMatrixMode(GL_PROJECTION);
 	glLoadIdentity();
 	glOrtho(0.0, SCREEN_WIDTH, SCREEN_HEIGHT, 0.0, -1.0, 10.0);
 	glPolygonMode(GL_FRONT, GL_FILL);
 	glMatrixMode(GL_MODELVIEW);
 	glLoadIdentity();
+	glColor4f(1, 1, 1, 1);
 
 	// tachometer
 	glEnable( GL_BLEND );
 	glColor3f(1.0f, 1.0f, 1.0);
 	gfx_drawSprite(32, 174, 83, 196, g_hud_texPkt[14]);
 	gfx_drawSprite(26, 164, 90, 220, g_hud_texPkt[13]);
-	glDisable( GL_BLEND );
 
 	// gear
 	int gear = player_car_ptr->gear_selected + 1;
@@ -977,17 +1120,19 @@ void gfx_draw_hud() {
 	gfx_drawHudDigit(82, 200, gear);
 
 	// speed
-	v = (player_car_ptr->speed >> 16) * 2.23694f; //to MPH
+	v = math_mul(player_car_ptr->speed, 0x23CA8) >> 16; //to MPH
 	gfx_drawHudDigit(76, 211, v % 10);
 	if (v > 9)  gfx_drawHudDigit(72, 211, (v / 10) % 10);
 	if (v > 99) gfx_drawHudDigit(68, 211, (v / 100) % 10);
 
+	/*
 	// track slice
 	v = player_car_ptr->track_slice;
 	gfx_drawHudDigit(19, 4, v % 10);
 	gfx_drawHudDigit(14, 4, (v / 10) % 10);
 	gfx_drawHudDigit( 9, 4, (v / 100) % 10);
 	gfx_drawHudDigit( 4, 4, (v / 1000) % 10);
+	*/
 
 	// time
 	v = (iSimTimeClock / 3) % 600;
@@ -999,7 +1144,6 @@ void gfx_draw_hud() {
 	gfx_drawHudDigit(36, 211, (v / 10) % 10);
 
 	// RPM needle
-	glBindTexture(GL_TEXTURE_2D, 0);
 	r = ((float) g_car_array[0].rpm_engine / (float) g_car_array[0].rpm_redline);
 	if (r > 1) r = 1;
 	r = r * 2.5 - 1.56;
@@ -1011,16 +1155,10 @@ void gfx_draw_hud() {
 	matrix[8] = 0; matrix[9] = 0; matrix[10] = 0; matrix[11] = 0;
 	matrix[12] = 58 * SCREEN_SCALE; matrix[13] = 200 * SCREEN_SCALE; matrix[14] = 0; matrix[15] = 1;
 	glLoadMatrixf(matrix);
-
-	glColor3f(1.0f, 0.0f, 0.0);
-	glBegin(GL_TRIANGLE_STRIP);
-	glVertex3f(-2, 0, 0);
-	glVertex3f(+2, 0, 0);
-	glVertex3f(-2, 24 * SCREEN_SCALE, 0);
-	glVertex3f(+2, 24 * SCREEN_SCALE, 0);
-	glEnd();
+	gfx_drawSprite(-2, 30, +2, 0, g_hud_texPkt[16]);
 
 	// steer indicator
+	glBindTexture(GL_TEXTURE_2D, 0);
 	r = ((float) g_car_array[0].steer_angle) / 0x280000;
 	c = -cosf(r);
 	s = sinf(r);
@@ -1030,13 +1168,50 @@ void gfx_draw_hud() {
 	matrix[8] = 0; matrix[9] = 0; matrix[10] = 0; matrix[11] = 0;
 	matrix[12] = 58 * SCREEN_SCALE; matrix[13] = 200 * SCREEN_SCALE; matrix[14] = 0; matrix[15] = 1;
 	glLoadMatrixf(matrix);
+	gfx_drawSprite(-2, 40, +2, 0, g_hud_texPkt[15]);
 
-	glColor3f(1.0f, 0.0f, 0.0);
-	glBegin(GL_TRIANGLES);
-	glVertex3f(-2 * SCREEN_SCALE, 32 * SCREEN_SCALE, 0);
-	glVertex3f(+2 * SCREEN_SCALE, 32 * SCREEN_SCALE, 0);
-	glVertex3f(0, 32 * SCREEN_SCALE, 0);
-	glEnd();
+	// reset matrix
+	glMatrixMode(GL_MODELVIEW);
+	glLoadIdentity();
+
+	glDisable( GL_BLEND );
+}
+
+void gfx_rear_view_mirror(int x, int y) {
+	int i = 0;
+	float x1, y1, x2, y2;
+
+	x1 = (g_dash_constants.rear_view[0] + x) * SCREEN_SCALE;
+	y1 = (g_dash_constants.rear_view[1] - y) * SCREEN_SCALE;
+	x2 = g_dash_constants.rear_view[2] * SCREEN_SCALE;
+	y2 = g_dash_constants.rear_view[3] * SCREEN_SCALE;
+
+	glMatrixMode(GL_PROJECTION);
+	glLoadIdentity();
+	gluPerspective(50.0, -1.38, 0.1, 1000);
+	glClear(GL_DEPTH_BUFFER_BIT);
+	glViewport(x1, y1, x2, y2);
+	glScissor(x1, y1, x2, y2);
+	glEnable(GL_SCISSOR_TEST);
+
+	cam_orientation.y += 180;
+
+	glDisable(GL_DEPTH_TEST);
+	gfx_drawHorizon();
+	gfx_drawRoad(1);
+	gfx_drawSmoke();
+
+	for (i = 0; i < g_total_cars_in_scene; i++) {
+		if ((g_car_ptr_array[i]->field_4e9 & 4) == 0) {
+			continue; //disabled car
+		}
+		if ((camera.id == 0) && (i == 0)) {
+			continue; // player's in car camera
+		}
+		gfx_drawVehicle(g_car_ptr_array[i]);
+	}
+
+	glDisable(GL_SCISSOR_TEST);
 }
 
 // gear shift animation vars
@@ -1055,6 +1230,17 @@ void gfx_draw_dashboard() {
 		return;
 	}
 
+	x = (player_car_ptr->body_roll >> 15) - 10;
+	y = (player_car_ptr->body_pitch >> 15) - 10;
+
+	// rear view mirror
+	gfx_rear_view_mirror(x, y);
+
+	// reset projection
+	glViewport(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
+	gluPerspective(90.0, 1.0, 0.1, 10);
+	glClear(GL_DEPTH_BUFFER_BIT);
+	glDisable(GL_DEPTH_TEST);
 	glMatrixMode(GL_PROJECTION);
 	glLoadIdentity();
 	glOrtho(0.0, SCREEN_WIDTH, SCREEN_HEIGHT, 0.0, -1.0, 10.0);
@@ -1064,7 +1250,7 @@ void gfx_draw_dashboard() {
 	glColor4f(1, 1, 1, 1);
 
 	// dash
-	gfx_drawSprite(0, 0, 320, 240, g_dash_texPkt[0]);
+	gfx_drawSprite(x, y, 340+x, 260+y, g_dash_texPkt[0]);
 
 	// speedo needle
 	if (player_car_ptr->car_model_id != 3) { // CZR1 digital speedo
@@ -1076,15 +1262,15 @@ void gfx_draw_dashboard() {
 		matrix[0] = c; matrix[1] = -s; matrix[2] = 0; matrix[3] = 0;
 		matrix[4] = s; matrix[5] = c; matrix[6] = 0; matrix[7] = 0;
 		matrix[8] = 0; matrix[9] = 0; matrix[10] = 0; matrix[11] = 0;
-		matrix[12] = g_dash_constants.speedo_pos_x * SCREEN_SCALE; matrix[13] = g_dash_constants.speedo_pos_y * SCREEN_SCALE; matrix[14] = 0; matrix[15] = 1;
+		matrix[12] = (g_dash_constants.speedo_pos_x+x) * SCREEN_SCALE; matrix[13] = (g_dash_constants.speedo_pos_y+y) * SCREEN_SCALE; matrix[14] = 0; matrix[15] = 1;
 		glLoadMatrixf(matrix);
 
 		glColor3f(0.9f, 0.3f, 0.1f);
 		glBegin(GL_TRIANGLE_STRIP);
-		glVertex3f(-1, 0, 0);
-		glVertex3f(+1, 0, 0);
-		glVertex3f(-1, g_dash_constants.gauge_needle_length * SCREEN_SCALE, 0);
-		glVertex3f(+1, g_dash_constants.gauge_needle_length * SCREEN_SCALE, 0);
+		glVertex3f(-SCREEN_SCALE, 0, 0);
+		glVertex3f(+SCREEN_SCALE, 0, 0);
+		glVertex3f(-SCREEN_SCALE, g_dash_constants.gauge_needle_length * SCREEN_SCALE, 0);
+		glVertex3f(+SCREEN_SCALE, g_dash_constants.gauge_needle_length * SCREEN_SCALE, 0);
 		glEnd();
 	}
 
@@ -1099,15 +1285,15 @@ void gfx_draw_dashboard() {
 	matrix[0] = c; matrix[1] = -s; matrix[2] = 0; matrix[3] = 0;
 	matrix[4] = s; matrix[5] = c; matrix[6] = 0; matrix[7] = 0;
 	matrix[8] = 0; matrix[9] = 0; matrix[10] = 0; matrix[11] = 0;
-	matrix[12] = g_dash_constants.tacho_pos_x * SCREEN_SCALE; matrix[13] = g_dash_constants.tacho_pos_y * SCREEN_SCALE; matrix[14] = 0; matrix[15] = 1;
+	matrix[12] = (g_dash_constants.tacho_pos_x+x) * SCREEN_SCALE; matrix[13] = (g_dash_constants.tacho_pos_y+y) * SCREEN_SCALE; matrix[14] = 0; matrix[15] = 1;
 	glLoadMatrixf(matrix);
 
 	glColor3f(0.9f, 0.3f, 0.1f);
 	glBegin(GL_TRIANGLE_STRIP);
-	glVertex3f(-1, 0, 0);
-	glVertex3f(+1, 0, 0);
-	glVertex3f(-1, g_dash_constants.gauge_needle_length * SCREEN_SCALE, 0);
-	glVertex3f(+1, g_dash_constants.gauge_needle_length * SCREEN_SCALE, 0);
+	glVertex3f(-SCREEN_SCALE, 0, 0);
+	glVertex3f(+SCREEN_SCALE, 0, 0);
+	glVertex3f(-SCREEN_SCALE, g_dash_constants.gauge_needle_length * SCREEN_SCALE, 0);
+	glVertex3f(+SCREEN_SCALE, g_dash_constants.gauge_needle_length * SCREEN_SCALE, 0);
 	glEnd();
 
 	//steering wheel
@@ -1119,15 +1305,17 @@ void gfx_draw_dashboard() {
 	matrix[0] = c; matrix[1] = -s; matrix[2] = 0; matrix[3] = 0;
 	matrix[4] = s; matrix[5] = c; matrix[6] = 0; matrix[7] = 0;
 	matrix[8] = 0; matrix[9] = 0; matrix[10] = 0; matrix[11] = 0;
-	matrix[12] = g_dash_constants.steer_pos_x * SCREEN_SCALE; matrix[13] = g_dash_constants.steer_pos_y * SCREEN_SCALE; matrix[14] = 0; matrix[15] = 1;
+	matrix[12] = (g_dash_constants.steer_pos_x+x) * SCREEN_SCALE; matrix[13] = (g_dash_constants.steer_pos_y+y) * SCREEN_SCALE; matrix[14] = 0; matrix[15] = 1;
 	glLoadMatrixf(matrix);
 	gfx_drawSprite(-g_dash_constants.steer_size, g_dash_constants.steer_size, g_dash_constants.steer_size, -g_dash_constants.steer_size, g_dash_texPkt[1]);
 	glBindTexture(GL_TEXTURE_2D, 0);
 
+	// reset matrix
+	glMatrixMode(GL_MODELVIEW);
+	glLoadIdentity();
+
 	// gear shift animation
 	if (player_car_ptr->gear_shift_interval) {
-		glLoadIdentity();
-
 		if (player_car_ptr->car_model_id == 4) { // F512TR dogleg
 			x = shift_pos_x_dogleg[player_car_ptr->gear_selected + 2];
 			y = shift_pos_y_dogleg[player_car_ptr->gear_selected + 2];
@@ -1154,37 +1342,42 @@ void gfx_draw_dashboard() {
 	}
 }
 
-void gfx_rear_view_mirror() {
-	int i = 0;
+CCB * g_ticket_cel;
 
-	glMatrixMode(GL_PROJECTION);
-	glLoadIdentity();
-	gluPerspective(50.0, -1.38, 0.1, 1000);
-	glClear(GL_DEPTH_BUFFER_BIT);
-	glViewport(g_dash_constants.rear_view[0] * SCREEN_SCALE, g_dash_constants.rear_view[1] * SCREEN_SCALE,
-			g_dash_constants.rear_view[2] * SCREEN_SCALE, g_dash_constants.rear_view[3] * SCREEN_SCALE);
-	glScissor(g_dash_constants.rear_view[0] * SCREEN_SCALE, g_dash_constants.rear_view[1] * SCREEN_SCALE,
-			g_dash_constants.rear_view[2] * SCREEN_SCALE, g_dash_constants.rear_view[3] * SCREEN_SCALE);
-	glEnable(GL_SCISSOR_TEST);
+void gfx_cop_ticket_screen() {
+	byte* data;
 
-	cam_orientation.y += 180;
-
-	glDisable(GL_DEPTH_TEST);
-	gfx_drawHorizon();
-	gfx_drawRoad(1);
-	gfx_drawSmoke();
-
-	for (i = 0; i < g_total_cars_in_scene; i++) {
-		if ((g_car_ptr_array[i]->field_4e9 & 4) == 0) {
-			continue; //disabled car
+	if (g_police_ticket_time == 100) {
+		if (g_ticket_cel) {
+			UnloadCel(g_ticket_cel);
+			g_ticket_cel = 0;
 		}
-		if ((camera.id == 0) && (i == 0)) {
-			continue; // player's in car camera
+		if (g_police_speeding_ticket) {
+			data = gfx_openfile_9594("DriveData/DriveArt/speedingt0.celFam", 0);
+		} else {
+			data = gfx_openfile_9594("DriveData/DriveArt/warningt0.celFam", 0);
 		}
-		gfx_drawVehicle(g_car_ptr_array[i]);
+		data += 0xC; //jump wwww header
+		g_ticket_cel = ParseCel((CCB*)data, 0);
 	}
 
-	glDisable(GL_SCISSOR_TEST);
+	DrawScreenCels(0, g_ticket_cel);
+}
+
+// "Crashed!" banner
+void gfx_toast_crashed() {
+	g_toast_crash_time--;
+	gfx_drawSprite(92, 50, 135 + 92, 50 + 18, g_hud_texPkt[18]);
+	// number of cars left
+	gfx_drawSprite(212, 53, 212 + 10, 53 + 12, g_hud_texPkt[(g_stats_data.cars_remaining % 10) + 20]);
+}
+
+// "Bonus car!" banner
+void gfx_toast_bonus_car() {
+	g_toast_bonus_time--;
+	gfx_drawSprite(80, 50, 160 + 80, 50 + 18, g_hud_texPkt[17]);
+	// number of cars left
+	gfx_drawSprite(225, 53, 225 + 10, 53 + 12, g_hud_texPkt[(g_stats_data.cars_remaining % 10) + 20]);
 }
 
 void gfx_render_scene() {
@@ -1224,18 +1417,18 @@ void gfx_render_scene() {
 	gfx_drawSmoke();
 
 	if (camera.id == 0 && g_dash_enabled) {
-		gfx_rear_view_mirror();
-	}
-
-	glViewport(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
-	gluPerspective(90.0, 1.0, 0.1, 10);
-	glClear(GL_DEPTH_BUFFER_BIT);
-	glDisable(GL_DEPTH_TEST);
-	if (camera.id == 0 && g_dash_enabled) {
 		gfx_draw_dashboard();
 	} else {
 		gfx_draw_hud();
 	}
-
+	if (g_police_ticket_time) {
+		gfx_cop_ticket_screen();
+		return;
+	}
+	if (g_toast_crash_time) {
+		gfx_toast_crashed();
+	}
+	if (g_toast_bonus_time) {
+		gfx_toast_bonus_car();
+	}
 }
-

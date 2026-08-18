@@ -1549,13 +1549,20 @@ int FUN_00004d64(tnfs_car_data *car, int node) {
 }
 
 void tnfs_ai_police_busted() {
-	g_police_ticket_time = 100;
-	if (g_police_speeding_ticket) {
-		printf("Cop: Speeding Ticket!");
+	if (g_stats_data.cars_remaining > 0) {
+		g_stats_data.cars_remaining--;
+		g_toast_crash_time = 60;
+		g_police_ticket_time = 100;
+		if (g_police_speeding_ticket) {
+			printf("Cop: Speeding Ticket!");
+		} else {
+			printf("Cop: Warning Ticket!");
+		}
+		printf(" Penalties %d - Warnings %d\n", g_stats_data.penalty_count, g_stats_data.warning_count);
 	} else {
-		printf("Cop: Warning Ticket!");
+		printf("Cop: You're arrested!\n");
+		g_quit_race = 1;
 	}
-	printf(" Penalties %d - Warnings %d\n", g_stats_data.penalty_count, g_stats_data.warning_count);
 }
 
 void FUN_0002ad5c(tnfs_car_data *car, int param_2) {
