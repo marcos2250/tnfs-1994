@@ -672,6 +672,7 @@ void gfx_drawVehicle(tnfs_car_data * car) {
 	tnfs_polygon * poly;
 	unsigned int textureId;
 	int i;
+	float a;
 
 	// TNFS uses LHS, convert to OpenGL's RHS
 	glMatrixMode(GL_MODELVIEW);
@@ -704,7 +705,21 @@ void gfx_drawVehicle(tnfs_car_data * car) {
 	glMultMatrixf(matrix);
 
 	carModel = &g_carmodels[car->car_model_id];
-	glColor3f(1.0f, 1.0f, 1.0);
+
+	if (track_data[car->track_slice].item_mode & 4) {
+		// dimmer lighting inside tunnels
+		a = 0.5;
+	} else if (track_data[car->track_slice].item_mode & 8) {
+		// tree tunnel
+		a = (float)((car->position.z & 0x3FFFF) - 0x1FFFF);
+		if (a < 0) a = -a;
+		a /= 0x80000;
+		a = 0.7 - a;
+	} else {
+		a = 1;
+	}
+	glColor3f(a, a, a);
+
 	glEnable(GL_DEPTH_TEST);
 	glPolygonMode(GL_FRONT, GL_FILL);
 
@@ -726,9 +741,9 @@ void gfx_drawVehicle(tnfs_car_data * car) {
 		}
 		// cop lights
 		if ((car->car_model_id == 8) && ((car->ai_state & 0x408) == 0x408)) {
-			if (carModel->lrl0 == poly->polyId && (iSimTimeClock & 8) == 0) {
+			if (carModel->lrl0 == poly->polyId && (iSimTimeClock & 16) == 0) {
 				textureId = carModel->copSirenLights[0];
-			} else if (carModel->lrr0 == poly->polyId  && (iSimTimeClock & 8) != 0) {
+			} else if (carModel->lrr0 == poly->polyId  && (iSimTimeClock & 16) != 0) {
 				textureId = carModel->copSirenLights[1];
 			}
 		}
@@ -967,9 +982,8 @@ void gfx_drawRoad(int isMirror) {
 			p1 *= 3; p2 *= 3;
 			p1 += x; p2 += x;
 
-			texture = g_terrain_texPkt[texture * 4];
 		    for (slice = 0; slice < 4; slice++) {
-		    	glBindTexture(GL_TEXTURE_2D, texture++);
+		    	glBindTexture(GL_TEXTURE_2D, g_terrain_texPkt[texture * 4 + slice]);
 				glBegin(GL_TRIANGLE_STRIP);
 				glTexCoord2d(0, 1);
 				glVertex3f(g_terrain[p1], g_terrain[p1 + 1], g_terrain[p1 + 2]);
@@ -1000,10 +1014,8 @@ void gfx_drawRoad(int isMirror) {
 
 		if (g_fences[chunk] != 0) {
 			texture = (g_fences[chunk] & 0x1F) + 0x20;
-			texture = g_terrain_texPkt[texture * 4];
-
 			for (slice = 0; slice < 4; slice++) {
-				glBindTexture(GL_TEXTURE_2D, texture++);
+				glBindTexture(GL_TEXTURE_2D, g_terrain_texPkt[texture * 4 + slice]);
 
 				// fence/wall height
 				if (track_data[p1].item_mode == 7 || track_data[p1].item_mode == 9) {
@@ -1135,11 +1147,11 @@ void gfx_draw_hud() {
 	*/
 
 	// time
-	v = (iSimTimeClock / 3) % 600;
+	v = (iSimTimeClock / 6) % 600;
 	gfx_drawHudDigit(56, 211, v % 10);
 	gfx_drawHudDigit(50, 211, (v / 10) % 10);
 	gfx_drawHudDigit(46, 211, (v / 100) % 10);
-	v = iSimTimeClock / 1800;
+	v = iSimTimeClock / 3600;
 	gfx_drawHudDigit(40, 211, v % 10);
 	gfx_drawHudDigit(36, 211, (v / 10) % 10);
 

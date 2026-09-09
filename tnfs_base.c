@@ -46,7 +46,7 @@ int g_number_of_traffic_cars = 4; //001670BB
 
 // settings/flags
 char is_drifting;
-int iSimTimeClock = 0;
+int iSimTimeClock = 0; //60Hz timer counter since sim mode started
 int g_road_node_count = 0;
 int g_road_finish_node = 0;
 int sound_flag = 0;
@@ -126,6 +126,9 @@ struct tnfs_smoke_puff g_smoke[SMOKE_PUFFS];
 int DAT_800eb6a4 = 0; //800eb6a4
 int DAT_8010d310 = 0; //8010d310
 
+int DAT_00010a94 = 0; //10a94, 3e7d4
+int DAT_00011af4 = 0; //11af4, 3e7d8
+
 int g_collision_bump_ref = 0x6666; // f99f0 800eae58
 int g_collision_force_carcar = 0; // f9a70
 int g_collision_force_wall = 0; // f9a74;
@@ -144,6 +147,7 @@ int DAT_00165148 = 1; // center lane distance/margin
 int g_player_id = 0; //16707C
 int g_cam_change_delay = 0; // 00143844
 
+int PTR_DAT_0002ab6c = 4;
 
 void setTerrainVertex(vector3f * vec, int chunk, int slice, int point) {
 	int x = (chunk * 55) + (slice * 33) + (point * 3);
@@ -419,10 +423,10 @@ void tnfs_reset_car(tnfs_car_data *car) {
 	car->wheels_on_ground = 1;
 	car->surface_type = 0;
 	car->surface_type_b = 0;
-	car->surface_type_2 = 0;
 	car->slope_force_lat = 0;
 	car->unknown_flag_3DD = 0;
 	car->slope_force_lon = 0;
+	car->field_4a9 = 0;
 
 	car->position.x = track_data[car->track_slice].pos.x;
 	car->position.y = track_data[car->track_slice].pos.y + 150;
@@ -674,6 +678,15 @@ void tnfs_init_car() {
 	car->gear_auto_selected = 0;
 
 	tnfs_Fiziks_InitCar(car);
+
+	DAT_00010a94 = 0; // 10a94. 3e7d4
+	DAT_00011af4 = 0; // 11af4, 3e7d8
+
+	if (g_track_sel == 0 && g_track_segment == 2) { //if Alpine 3rd segment
+		car->surface_type_2 = 3;
+	} else {
+		car->surface_type_2 = 0;
+	}
 
 	tnfs_reset_car(car);
 }
@@ -936,7 +949,7 @@ void sfx_update() {
 /* common stub functions */
 
 void tnfs_replay_highlight_record(char a) {
-	if (iSimTimeClock % 30 == 0)
+	if (iSimTimeClock % 60 == 0)
 		printf("replay highlight %i\n", a);
 }
 
@@ -966,6 +979,20 @@ void tnfs_initial_position(tnfs_car_data *car) {
 
 	car->track_center_distance = 0;
 	(car->position).z = track_data[car->track_slice & g_slice_mask].pos.z;
+}
+
+/* Bonus car parameters */
+const int g_bonus_car_slice_table[] = { 0x36F, 0x57D, 0x3CA, 0x3FE, 0x3CF, 0x3C0, 0x384, 0x378, 0x43D, 0xBB8, 0xBB8, 0xBB8 };
+const int g_bonus_car_time_table[] = { 0x16A8, 0x2D5C, 0x2A67, 0x192D, 0x1FBD, 0x23D2, 0x13AB, 0x1874, 0x2443, 0x3E8, 0x3E8, 0x3E8 };
+
+
+void tnfs_define_bonus_car_time() {
+	int value;
+
+	g_stats_data.bonus_car_track_slice = g_bonus_car_slice_table[g_track_sel * 3 + g_track_segment];
+
+	value = g_bonus_car_time_table[g_track_sel * 3 + g_track_segment];
+	g_stats_data.bonus_car_time = math_div(value, g_traffic_speeds[g_config.skill_level * 8 + PTR_DAT_0002ab6c]);
 }
 
 int tnfs_racer_crossed_finish_line(tnfs_car_data *car) {
@@ -1343,9 +1370,8 @@ void tnfs_init_sim() {
 	//g_stats_data.cars_crashed = 0;
 	//g_stats_data.cars_remaining = 2;
 	g_stats_data.reaction_time = 0;
-	g_stats_data.bonus_car_track_slice = 0x360; //stub
-	g_stats_data.bonus_car_time = 0x2000; //stub
-	g_stats_data.bonus_car_flag = 0;
+
+	tnfs_define_bonus_car_time();
 
 	g_stats_data.segment_time = 0;
 	//g_stats_data.route_time = 0;
@@ -1448,7 +1474,7 @@ void tnfs_update() {
 		}
 	} else {
 		if (player_car_ptr->field_4c9 == 0) {
-			iSimTimeClock++;
+			iSimTimeClock += 2; //60Hz counter
 		}
 	}
 

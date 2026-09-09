@@ -917,7 +917,7 @@ int read_carmodel_file(char * carname, tnfs_carmodel3d * carmodel) {
 }
 
 
-int g_lod_sequence[14] = { 4, 8, 16, 20,   0, 12, 24, 32,  0, 12, 24, 32,  0, 0 };
+int g_lod_sequence[8] = { 0, 4, 8, 12, 16, 20, 28, 32 };
 
 /*
  * Read track PKT files
@@ -930,7 +930,8 @@ int read_track_pkt_file(char * trackname) {
 	unsigned char * obj;
 	unsigned char * ori3;
 	unsigned char * shpm;
-	int i, j, k;
+	unsigned char * objs[8];
+	int i, j, height, aux;
 	int wpath[4] = { 0, 0, 0, 0 };
 
 	printf("Loading track PKT file - %s\n", trackname);
@@ -951,20 +952,60 @@ int read_track_pkt_file(char * trackname) {
 	for (i = 0; i < 256; i++) {
 		g_terrain_texPkt[i] = 0;
 	}
+
 	for (i = 0; i < filedata[0x23]; i++) {
+		height = 0;
+
+		// go for next texture group
 		if (readFixed32(filedata, i * 4 + 0x24)) {
 			wpath[1] = i;
 		}
-		k = 0;
-		for (j = 0; j < 14; j++) {
-			if (k == 4) break;
+
+		// select best quality images
+		for (j = 0; j < 8; j++) {
 			wpath[2] = g_lod_sequence[j];
-			obj = read_wwww(filedata, wpath, 3);
-			if (obj == 0) continue;
-			g_terrain_texPkt[i * 4 + k] = gfx_store_ccb((CCB *) obj, 0xFF);
-			if (g_terrain_texPkt[i * 4 + k]) {
-				k++;
+			objs[j] = read_wwww(filedata, wpath, 3);
+			// item found
+			if (objs[j]) {
+				//get CCB height
+				aux = bswap16(((CCB*)objs[j])->ccb_Height);
+				if (j == 0) {
+					height = aux; // use first as reference
+				} else {
+					if (aux < height) {
+						objs[j] = 0; // discard smaller ones
+					}
+				}
 			}
+		}
+
+		// level of detail sequences
+		if (objs[1] != 0 && objs[2] != 0 && objs[4] != 0 && objs[5] != 0) { //4,8,16,20
+			g_terrain_texPkt[i * 4] = gfx_store_ccb((CCB *) objs[1], 0xFF);
+			g_terrain_texPkt[i * 4 + 1] = gfx_store_ccb((CCB *) objs[2], 0xFF);
+			g_terrain_texPkt[i * 4 + 2] = gfx_store_ccb((CCB *) objs[4], 0xFF);
+			g_terrain_texPkt[i * 4 + 3] = gfx_store_ccb((CCB *) objs[5], 0xFF);
+		} else if (objs[6] != 0 && objs[7] != 0) { // 28,32
+			g_terrain_texPkt[i * 4] = gfx_store_ccb((CCB *) objs[6], 0xFF);
+			g_terrain_texPkt[i * 4 + 1] = gfx_store_ccb((CCB *) objs[7], 0xFF);
+			g_terrain_texPkt[i * 4 + 2] = g_terrain_texPkt[i * 4];
+			g_terrain_texPkt[i * 4 + 3] = g_terrain_texPkt[i * 4 + 1];
+		} else if (objs[0] != 0 && objs[7] != 0) { // 0,32
+			g_terrain_texPkt[i * 4] = gfx_store_ccb((CCB *) objs[0], 0xFF);
+			g_terrain_texPkt[i * 4 + 1] = gfx_store_ccb((CCB *) objs[7], 0xFF);
+			g_terrain_texPkt[i * 4 + 2] = g_terrain_texPkt[i * 4];
+			g_terrain_texPkt[i * 4 + 3] = g_terrain_texPkt[i * 4 + 1];
+		} else if (objs[0] != 0 && objs[3] != 0) { // 0,12
+			g_terrain_texPkt[i * 4] = gfx_store_ccb((CCB *) objs[0], 0xFF);
+			g_terrain_texPkt[i * 4 + 1] = gfx_store_ccb((CCB *) objs[3], 0xFF);
+			g_terrain_texPkt[i * 4 + 2] = g_terrain_texPkt[i * 4];
+			g_terrain_texPkt[i * 4 + 3] = g_terrain_texPkt[i * 4 + 1];
+		} else { //0
+			aux = gfx_store_ccb((CCB *) objs[0], 0xFF);
+			g_terrain_texPkt[i * 4] = aux;
+			g_terrain_texPkt[i * 4 + 1] = aux;
+			g_terrain_texPkt[i * 4 + 2] = aux;
+			g_terrain_texPkt[i * 4 + 3] = aux;
 		}
 	}
 

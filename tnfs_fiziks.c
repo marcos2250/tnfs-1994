@@ -30,18 +30,18 @@ int is_performance_test_off = 0; //DAT_00146483
 
 void tnfs_record_best_acceleration(int a, int b, int c, int s) {
 	if (a > 0)
-		printf("Best 0-60 acceleration: %.2f\n", ((float) a) / 30);
+		printf("Best 0-60 acceleration: %.2f\n", ((float) a) / 60);
 	else if (b > 0)
-		printf("Best 0-100 acceleration: %.2f\n", ((float) b) / 30);
+		printf("Best 0-100 acceleration: %.2f\n", ((float) b) / 60);
 	else if (c > 0)
-		printf("Quarter mile time: %.2f (%d m/s)\n", (((float) c) / 30), (s >> 16));
+		printf("Quarter mile time: %.2f (%d m/s)\n", (((float) c) / 60), (s >> 16));
 }
 
 void tnfs_record_best_braking(int a, int b) {
 	if (a > 0)
-		printf("\nBest 60-0 braking: %.2f\n", ((float) a) / 30);
+		printf("\nBest 60-0 braking: %.2f\n", ((float) a) / 60);
 	else if (b > 0)
-		printf("\nBest 80-0 braking: %.2f\n", ((float) b) / 30);
+		printf("\nBest 80-0 braking: %.2f\n", ((float) b) / 60);
 }
 
 
@@ -280,9 +280,16 @@ int tnfs_drag_force(tnfs_car_data *car, signed int speed) {
 	sq_speed = speed >> 16;
 	sq_speed *= sq_speed;
 
-	drag = fix8(road_surface_type_array[car->surface_type].velocity_drag * car->car_specs_ptr->drag) * sq_speed;
+	if (DAT_00010a94 == 0) {
+		drag = fix8(road_surface_type_array[car->surface_type + car->surface_type_2].velocity_drag * car->car_specs_ptr->drag) * sq_speed;
 
-	drag += road_surface_type_array[car->surface_type].surface_drag;
+		drag += road_surface_type_array[car->surface_type + car->surface_type_2].surface_drag;
+
+	} else {
+		drag = fix8(road_surface_type_array[car->surface_type].velocity_drag * car->car_specs_ptr->drag) * sq_speed;
+
+		drag += road_surface_type_array[car->surface_type].surface_drag;
+	}
 
 	max = abs(speed * car->fps);
 	if (drag > max)
@@ -745,7 +752,6 @@ void tnfs_physics_update(tnfs_car_data *car_data) {
 	int speed_lat;
 	tnfs_car_specs *car_specs;
 	int aux;
-	int g_easteregg_0001277c = 0;
 
 	stats_data_ptr = &g_stats_data;
 
@@ -970,7 +976,7 @@ void tnfs_physics_update(tnfs_car_data *car_data) {
 	}
 
 	// calculate grip forces
-	if (g_easteregg_0001277c == 0) {
+	if (DAT_00010a94 == 0) {
 		aux = road_surface_type_array[car_data->surface_type + car_data->surface_type_2].roadFriction * (car_data->front_friction_factor - weight_transfer);
 		car_data->tire_grip_front = fix8(aux);
 		aux = road_surface_type_array[car_data->surface_type + car_data->surface_type_2].roadFriction * (car_data->rear_friction_factor + weight_transfer);
@@ -1263,6 +1269,10 @@ void tnfs_height_position(tnfs_car_data *car, int is_driving_mode) {
 
 		// vertical ramp speed
 		car->speed_y = -fixmul(car->speed_local_lat, math_sin_3(angleZ)) - fixmul(car->speed_local_lon, math_sin_3(angleX));
+
+		if (car->surface_type_b != 0) {
+			car->speed_y = -0xa0000;
+		}
 
 		if (car->time_off_ground > 20) {
 			if (g_game_settings & 0x20)

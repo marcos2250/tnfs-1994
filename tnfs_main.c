@@ -238,6 +238,7 @@ void tnfs_race_enter() {
 		if (g_free_mode) {
 			camera.orientation.x += (g_control_throttle - g_control_brake) * 0x10000;
 			camera.orientation.y += g_control_steer * 0x10000;
+			camera.orientation.y = math_angle_wrap(camera.orientation.y);
 			if (g_car_array[0].handbrake) {
 				a = ((float) camera.orientation.y) / 2670179.113f;
 				camera.position.x += sinf(a) * 0x10000;
@@ -783,7 +784,6 @@ void tnfs_menu_drive_start() {
 		g_stats_data.route_time += g_stats_data.segment_time;
 		tnfs_menu_checkpoint();
 	}
-
 	if (!g_quit_race) {
 		g_track_segment = 1;
 		tnfs_race_enter();
@@ -793,7 +793,6 @@ void tnfs_menu_drive_start() {
 		g_stats_data.route_time += g_stats_data.segment_time;
 		tnfs_menu_checkpoint();
 	}
-
 	if (!g_quit_race) {
 		g_track_segment = 2;
 		tnfs_race_enter();
@@ -802,8 +801,9 @@ void tnfs_menu_drive_start() {
 		g_stats_data.segment_time = iSimTimeClock;
 		g_stats_data.route_time += g_stats_data.segment_time;
 		tnfs_menu_finish();
-		tnfs_input_records();
 	}
+
+	tnfs_input_records();
 
 	sfx_init_frontend();
 	sfx_play_sound(0, 1, 1, 1, 0);
@@ -907,22 +907,22 @@ void tnfs_init_config() {
 	}
 
 	strcpy(g_best_times[0].name, "Daredevil");
-	g_best_times[0].time = 26619;
+	g_best_times[0].time = 53238;
 	g_best_times[0].max_speed = 5103575; //174,2 mph
 	g_best_times[0].car_id = 4;
 	g_best_times[0].skill = 2;
 	strcpy(g_best_times[3].name, "Daredevil");
-	g_best_times[3].time = 24498;
+	g_best_times[3].time = 48996;
 	g_best_times[3].max_speed = 4142626; //141,4 mph
 	g_best_times[3].car_id = 4;
 	g_best_times[3].skill = 2;
 	strcpy(g_best_times[6].name, "Daredevil");
-	g_best_times[6].time = 20112;
+	g_best_times[6].time = 40224;
 	g_best_times[6].max_speed = 5481509; //187,1 mph
 	g_best_times[6].car_id = 4;
 	g_best_times[6].skill = 2;
 	strcpy(g_best_times[9].name, "Daredevil");
-	g_best_times[9].time = 20000;
+	g_best_times[9].time = 40000;
 	g_best_times[9].max_speed = 6000000;
 	g_best_times[9].car_id = 4;
 	g_best_times[9].skill = 2;
@@ -1079,7 +1079,7 @@ void fileView_sfx_screen(int id) {
 void fileViewer_main() {
 	int pos = 0;
 	int id = 0;
-	int fileView_count = sizeof(g_viewer_files);
+	int fileView_count = 22; //sizeof(g_viewer_files);
 	fileView_scan_file(id);
 
 	gfx_draw_text_9500("PgUp/PgDn:chg.files L/R/Up/Dn:seek Esc:back", 10, 210);

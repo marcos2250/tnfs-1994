@@ -502,9 +502,9 @@ void FUN_0000b344(int itime, char *param_2) {
 	int iVar2;
 	int iVar3;
 
-	iVar1 = itime / 1800;
-	iVar2 = (itime / 30) % 60;
-	iVar3 = (itime / 3) % 10;
+	iVar1 = itime / 3600;
+	iVar2 = (itime / 60) % 60;
+	iVar3 = (itime / 6) % 10;
 
 	//itime *= 120;
 	//iVar1 = math_remainder(itime, 0x34bc0);
@@ -565,7 +565,7 @@ int tnfs_ui_route(int route, int param_2, int param_3, int segment) {
 			sprintf(acStack_78, "%d.", i + 1);
 		} else {
 			sprintf(acStack_78, "%d. %10s %6s %6s %s", i + 1, //
-			stats->name, g_cars_names[stats->car_id], g_skill_abr[stats->skill], auStack_84);
+			stats->name, auStack_84, g_cars_names[stats->car_id], g_skill_abr[stats->skill]);
 		}
 		gfx_draw_text_9500(acStack_78, 0x25, i * 0xc + 0xb4);
 	}

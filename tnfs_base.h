@@ -440,6 +440,7 @@ typedef struct tnfs_car_data {
 	int surface_type; //0x49D
 	int surface_type_b; //0x4A1
 	// ...
+	int field_4a9; //0x4A9
 	int tcs_on; //0x4AD
 	int abs_on; //0x4B1
 	// ...
@@ -776,6 +777,11 @@ extern int g_number_of_players;
 extern int g_selected_cheat;
 extern int selected_camera;
 extern tnfs_camera camera;
+
+extern int PTR_DAT_0002ab6c;
+
+extern int DAT_00010a94; //10a94/3e7d4 used for Alpine 3rd segment (icy road)
+extern int DAT_00011af4; //11af4, 3e7d8 not used?
 
 extern int g_collision_bump_ref;
 extern int g_collision_force_carcar;

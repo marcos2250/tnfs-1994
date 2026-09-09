@@ -3,7 +3,7 @@ The Need for Speed (1994) 3DO Recreation
 
 This project is a reimplementation of the classic racing simulator **The Need for Speed**, originally released for the **3DO console in 1994**.
 The goal is to recreate the original game look and feel, and make it natively playable on modern PCs with SDL2 and improved graphics.
-This project aims to reconstruct the original 3DO version code as it works, wherever possible.
+This project aims to be a reconstruction **at the source code level** of the original 3DO executables.
 
 > ⚠️ To play the game, you must own a legal copy of the original **3DO CD-ROM**. The assets from the disc are required and are not distributed with this project.
 

@@ -126,6 +126,7 @@ void tnfs_track_fence_collision(tnfs_car_data *car_data) {
 	int roadRightMargin;
 	int roadLeftFence;
 	int roadRightFence;
+	int r12;
 
 	roadPositionX = track_data[car_data->track_slice & g_slice_mask].pos.x;
 	roadPositionZ = track_data[car_data->track_slice & g_slice_mask].pos.z;
@@ -141,6 +142,42 @@ void tnfs_track_fence_collision(tnfs_car_data *car_data) {
 	fence_flag = 0;
 	fenceSide = 0;
 	distance = fixmul(fence_sin, roadPositionZ - car_data->position.z) - fixmul(fence_cos, roadPositionX - car_data->position.x);
+
+
+    r12 = track_data[car_data->track_slice].item_mode;
+	// ldr        r1,[PTR_DAT_00010a94]
+	// ldr        r0,[PTR_DAT_00011af4]
+	// mov        r3,#0x1
+	// mov        r2,#0x0
+	if ((r12 == 4)     // teq        r12,#0x4
+	 || (r12 == 7)     // teqne      r12,#0x7
+	 || (r12 == 9)) {  // teqne      r12,#0x9
+		DAT_00010a94 = 1;  // streq      r3,[r1,#0x0]
+		DAT_00011af4 = 1;  // streq      r3,[r0,#0x0]
+	} else {           // beq        LAB_00011a60
+		DAT_00010a94 = 0;  // str        r2,[r1,#0x0]
+		// ldr        r1,[r4,#0x44]
+		// add        r1,r1,r1, lsl #0x3
+		// add        r1,r6,r1, lsl #0x2
+		// ldrb       r1,[r1,#0x7]
+		if (track_data[car_data->track_slice].item_mode != 8) { // teq r1,#0x8
+			DAT_00011af4 = 0;  // strne r2,[r0,#0x0]
+		} else {
+			DAT_00011af4 = 1;  // streq r3,[r0,#0x0]
+		}
+	}
+
+	// LAB_00011a60:
+    // ldr        r0,[r4,#0x44]
+    // add        r0,r0,r0, lsl #0x3
+    // add        r0,r6,r0, lsl #0x2
+    // ldrb       r0,[r0,#0x7]
+    // ldr        r1,[car_data]
+    if (track_data[car_data->track_slice].item_mode != 5) { // teq r0,#0x5
+    	car_data->field_4a9 = 1; // strne r2,[r1,#0xc]
+    } else {
+    	car_data->field_4a9 = 0; // streq r3,[r1,#0xc]
+    }
 
 	rebound_speed_x = 0;
 	if (distance < roadLeftMargin * -0x2000) {

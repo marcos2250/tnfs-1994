@@ -5,6 +5,7 @@
 #ifndef TNFS_AI_H_
 #define TNFS_AI_H_
 
+extern const int g_traffic_speeds[24];
 
 void tnfs_ai_init(int oppcarid);
 void tnfs_ai_load_car(tnfs_car_data *car, int newCarModelId);
