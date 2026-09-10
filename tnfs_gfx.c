@@ -932,6 +932,95 @@ void gfx_drawObject(tnfs_scenery_object * object) {
 	glBindTexture(GL_TEXTURE_2D, 0);
 }
 
+/*
+ * Draw a strip ("lane") of 4 quads ("slices") of road terrain.
+ */
+void gfx_drawRoadStrip(int chunk, int strip, int texture) {
+	int p1, p2, x;
+	int slice = 4;
+
+	x = chunk * 5 * 33;
+	if (strip == 5) {
+		p1 = 0; p2 = 6;
+	} else {
+		p1 = strip; p2 = strip + 1;
+	}
+	p1 *= 3; p2 *= 3;
+	p1 += x; p2 += x;
+
+	texture *= 4;
+
+	while(slice--) {
+		glBindTexture(GL_TEXTURE_2D, g_terrain_texPkt[texture]);
+		texture++;
+
+		glBegin(GL_TRIANGLE_STRIP);
+		glTexCoord2d(0, 1);
+		glVertex3f(g_terrain[p1], g_terrain[p1 + 1], g_terrain[p1 + 2]);
+		glTexCoord2d(0, 0);
+		glVertex3f(g_terrain[p2], g_terrain[p2 + 1], g_terrain[p2 + 2]);
+
+		p1 += 33; p2 += 33;
+		glTexCoord2d(1, 1);
+		glVertex3f(g_terrain[p1], g_terrain[p1 + 1], g_terrain[p1 + 2]);
+		glTexCoord2d(1, 0);
+		glVertex3f(g_terrain[p2], g_terrain[p2 + 1], g_terrain[p2 + 2]);
+		glEnd();
+	}
+}
+
+/*
+ * FIX: Since the steel wire mesh fencing (used by City and Coastal tracks) is rendered as translucent textures,
+ * had to render their polygons with blend effect just in the end of scenery drawing order.
+ * This transparent fencing is actually both leftmost (#9) and rightmost (#4) strips of track terrain chunks,
+ * so this is NOT the same road side fencing, eg. wood fences, guard rails and some tunnel walls.
+ */
+void gfx_drawMeshFence() {
+	int count, strip, chunk, texture;
+
+	glMatrixMode(GL_MODELVIEW);
+	glLoadIdentity();
+	if (cam_orientation.x != 0) {
+		glRotatef(cam_orientation.x, 1, 0, 0);
+	}
+	if (cam_orientation.z != 0) {
+		glRotatef(cam_orientation.z, 0, 0, 1);
+	}
+	glRotatef(cam_orientation.y, 0, 1, 0);
+	glTranslatef(cam_position.x, cam_position.y, cam_position.z);
+	glColor3f(1.0f, 1.0f, 1.0);
+	glPolygonMode(GL_FRONT, GL_FILL);
+	glEnable(GL_BLEND);
+
+	count = 20;
+	chunk = (camera.track_slice >> 2) + 20;
+	while(count--) {
+			if (g_track_sel == 1) {
+				strip = 9;
+				texture = g_terrain_texId[chunk * 10 + strip];
+				if (texture == 19) {
+					gfx_drawRoadStrip(chunk, strip, texture);
+				}
+			}
+			if (g_track_sel == 2) {
+				strip = 4;
+				texture = g_terrain_texId[chunk * 10 + strip];
+				if (texture == 14) {
+					gfx_drawRoadStrip(chunk, strip, texture);
+				}
+
+				strip = 9;
+				texture = g_terrain_texId[chunk * 10 + strip];
+				if (texture == 17) {
+					gfx_drawRoadStrip(chunk, strip, texture);
+				}
+			}
+			chunk--;
+	}
+	glDisable(GL_BLEND);
+	glBindTexture(GL_TEXTURE_2D, 0);
+}
+
 void gfx_drawRoad(int isMirror) {
 	int x;
 	int p1, p2;
@@ -973,29 +1062,17 @@ void gfx_drawRoad(int isMirror) {
 				continue; // no texture, no render
 			}
 
-			x = chunk * 5 * 33;
-			if (strip == 5) {
-				p1 = 0; p2 = 6;
-			} else {
-				p1 = strip; p2 = strip + 1;
+			// skip wire fences textures, will be rendered later
+			if (g_track_segment == 0) {
+				if (g_track_sel == 1 && (texture == 19)) {
+					continue;
+				}
+				if (g_track_sel == 2 && (texture == 14 || texture == 17)) {
+					continue;
+				}
 			}
-			p1 *= 3; p2 *= 3;
-			p1 += x; p2 += x;
 
-		    for (slice = 0; slice < 4; slice++) {
-		    	glBindTexture(GL_TEXTURE_2D, g_terrain_texPkt[texture * 4 + slice]);
-				glBegin(GL_TRIANGLE_STRIP);
-				glTexCoord2d(0, 1);
-				glVertex3f(g_terrain[p1], g_terrain[p1 + 1], g_terrain[p1 + 2]);
-				glTexCoord2d(0, 0);
-				glVertex3f(g_terrain[p2], g_terrain[p2 + 1], g_terrain[p2 + 2]);
-				p1 += 33; p2 += 33;
-				glTexCoord2d(1, 1);
-				glVertex3f(g_terrain[p1], g_terrain[p1 + 1], g_terrain[p1 + 2]);
-				glTexCoord2d(1, 0);
-				glVertex3f(g_terrain[p2], g_terrain[p2 + 1], g_terrain[p2 + 2]);
-				glEnd();
-		    }
+			gfx_drawRoadStrip(chunk, strip, texture);
 		}
 		chunk += chunk_increment;
 	}
@@ -1077,6 +1154,11 @@ void gfx_drawRoad(int isMirror) {
 	}
 
 	glBindTexture(GL_TEXTURE_2D, 0);
+
+	// lastly, draw wire mesh fences for Coastal and City
+	if (g_track_segment == 0 && (g_track_sel == 1 || g_track_sel == 2)) {
+		gfx_drawMeshFence();
+	}
 }
 
 void gfx_drawSprite(int x1, int y1, int x2, int y2, unsigned int texId) {

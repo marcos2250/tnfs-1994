@@ -314,6 +314,8 @@ int read_tri_file(char * file) {
 		g_scenery_models[i].texture_2 = buffer[3];
 		g_scenery_models[i].width = ((float) buffer[0x5]) / 2;
 		g_scenery_models[i].height = ((float) buffer[0xD]);
+
+		if (g_scenery_models[i].height < 0.1) g_scenery_models[i].height = 0.1;
 	}
 
 	// 0x17050 scenery objects block

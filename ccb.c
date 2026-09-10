@@ -80,13 +80,13 @@ void writepixel(byte * buffer, int *idx, int rgb, int shade) {
 
 	//FIXME: 0xfc00 color -> transparent pixel?
 	if (isBgnd == 0 && rgb == 0xfc00) {
-		buffer[*idx] = shade << 5;
+		buffer[*idx] = 0xAA >> shade;
 		*idx += 1;
-		buffer[*idx] = shade << 5;
+		buffer[*idx] = 0xAA >> shade;
 		*idx += 1;
-		buffer[*idx] = shade << 5;
+		buffer[*idx] = 0xAA >> shade;
 		*idx += 1;
-		buffer[*idx] = shade < 4 ? 0 : 0xFF;
+		buffer[*idx] = 0x88;
 		*idx += 1;
 		return;
 	}
