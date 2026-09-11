@@ -14,9 +14,12 @@ typedef unsigned int uint32;
 typedef int Err;
 typedef int Item;
 
-extern const int SCREEN_WIDTH;
-extern const int SCREEN_HEIGHT;
-extern const float SCREEN_SCALE;
+extern int screen_width;
+extern int screen_height;
+extern float screen_scale;
+extern float screen_aspect_ratio;
+extern int screen_width_scaled;
+extern int screen_height_scaled;
 
 extern unsigned char g_backbuffer[307200]; //320x240x4
 

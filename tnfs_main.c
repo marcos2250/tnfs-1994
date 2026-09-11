@@ -142,6 +142,15 @@ void sys_sdl_exit() {
 	exit(0);
 }
 
+void sys_handleResize(int width, int height) {
+	screen_width = width;
+	screen_height = height;
+	screen_scale = ((float)height) / 240.0f;
+	screen_aspect_ratio = (float)width / (float)height;
+	screen_width_scaled = ((float)screen_width / screen_scale);
+	screen_height_scaled = ((float)screen_height / screen_scale);
+}
+
 void sys_sdl_swapwindow() {
 	SDL_GL_SwapWindow(window);
 }
@@ -153,7 +162,7 @@ void gfx_update() {
 
 void renderGlFrontEnd() {
 	glBindTexture(GL_TEXTURE_2D, 0);
-	glPixelZoom(SCREEN_SCALE, SCREEN_SCALE);
+	glPixelZoom(screen_scale, screen_scale);
 	glDrawPixels(320, 240, GL_RGBA, GL_UNSIGNED_BYTE, &g_backbuffer);
 	SDL_GL_SwapWindow(window);
 }
@@ -169,6 +178,11 @@ void sys_sdl_loop_frontend() {
 		if (event.type == SDL_KEYDOWN) {
 			break;
 		}
+	    if (event.window.event == SDL_WINDOWEVENT_SIZE_CHANGED) {
+	    	sys_handleResize(event.window.data1, event.window.data2);
+	    	glClear(GL_COLOR_BUFFER_BIT);
+	    	renderGlFrontEnd();
+	    }
 		SDL_Delay(30);
 	}
 }
@@ -231,6 +245,9 @@ void tnfs_race_enter() {
 			if (event.type == SDL_QUIT) {
 				sys_sdl_exit();
 			}
+		    if (event.window.event == SDL_WINDOWEVENT_SIZE_CHANGED) {
+		    	sys_handleResize(event.window.data1, event.window.data2);
+		    }
 			handleKeys();
 		}
 
@@ -584,6 +601,8 @@ void tnfs_menu_showcase() {
 // insert new record into an ordered array list
 int tnfs_insert_record_score(int score) {
 	int i, c, n;
+
+	if (score <= 0) return -1;
 	n = -1;
 	c = 10;
 	while (c--) {
@@ -662,16 +681,19 @@ void tnfs_input_records() {
 	if (g_quit_race) return; // player gave up
 
 	// not sure if scores are calculated this way
-	score = ( 40000 - g_stats_data.route_time )
+	score = ( 100000 - g_stats_data.route_time )
 			+ ( g_stats_data.cars_crashed * -3000 )
 			+ ( g_stats_data.warning_count * -1000 )
 			+ ( g_stats_data.penalty_count * -5000 );
 
-	if (score <= 0) return;
-
 	idTime = tnfs_insert_record_time();
 	idScore = tnfs_insert_record_score(score);
 	idSpeed = tnfs_insert_record_speed();
+
+	printf("Record index: time %d (%d); score %d (%d) speed %d (%d)\n",
+			g_stats_data.route_time, idTime,
+			score, idScore,
+			g_stats_data.top_speed, idSpeed);
 
 	if (idTime < 0 && idScore < 0) {
 		return; //no record to save
@@ -805,6 +827,7 @@ void tnfs_menu_drive_start() {
 
 	tnfs_input_records();
 
+	gfx_clear();
 	sfx_init_frontend();
 	sfx_play_sound(0, 1, 1, 1, 0);
 	SDL_PauseAudioDevice(audioDevice, 0);
@@ -817,6 +840,7 @@ int g_cc_menu_right[5] = { 4, 2, 1, 0, 3 };
 
 void tnfs_menu_control() {
 	int option = 0;
+	gfx_clear();
 	sfx_init_frontend();
 	sfx_play_sound(0, 1, 1, 1, 0);
 	SDL_PauseAudioDevice(audioDevice, 0);
@@ -1204,8 +1228,8 @@ int main(int argc, char **argv) {
 
 	window = SDL_CreateWindow("SDL Window", //
 			SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, //
-			SCREEN_WIDTH, SCREEN_HEIGHT,
-			SDL_WINDOW_SHOWN | SDL_WINDOW_OPENGL);
+			screen_width, screen_height,
+			SDL_WINDOW_SHOWN | SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);
 	if (!window) {
 		printf("Window could not be created! SDL_Error: %s\n", SDL_GetError());
 		return 0;
@@ -1228,7 +1252,7 @@ int main(int argc, char **argv) {
 		printf("Audio device could not be created! SDL_Error: %s\n", SDL_GetError());
 	}
 
-	glViewport(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
+	glViewport(0, 0, screen_width, screen_height);
 	glClearColor(1.f, 1.f, 1.f, 0.f);
 	glClear(GL_COLOR_BUFFER_BIT);
 	glAlphaFunc(GL_GREATER, 0);

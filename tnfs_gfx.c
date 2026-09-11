@@ -8,9 +8,12 @@
 #include "tnfs_files.h"
 #include "ccb.h"
 
-const int SCREEN_WIDTH = 1280; //320;
-const int SCREEN_HEIGHT = 960; //240;
-const float SCREEN_SCALE = 4; //1;
+int screen_width = 1280; //320;
+int screen_height = 960; //240;
+float screen_scale = 4; //1;
+float screen_aspect_ratio = 1.38;
+int screen_width_scaled = 320;
+int screen_height_scaled = 240;
 
 byte g_backbuffer[307200];
 byte g_fontdata[4464];
@@ -182,8 +185,8 @@ Err DrawScreenCels(Item screenItem, CCB *cel) {
 	// draw quad
 	glMatrixMode(GL_PROJECTION);
 	glLoadIdentity();
-	glViewport(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
-	glOrtho(0.0, SCREEN_WIDTH, SCREEN_HEIGHT, 0.0, -1.0, 10.0);
+	glViewport(0, 0, screen_width, screen_height);
+	glOrtho(0.0, screen_width, screen_height, 0.0, -1.0, 10.0);
 	glMatrixMode(GL_MODELVIEW);
 	glLoadIdentity();
 
@@ -191,10 +194,10 @@ Err DrawScreenCels(Item screenItem, CCB *cel) {
 	glBindTexture(GL_TEXTURE_2D, cel->ccb_version); //texId
 	glColor3f(1,1,1);
 
-	x0*=SCREEN_SCALE; y0*=SCREEN_SCALE;
-	x1*=SCREEN_SCALE; y1*=SCREEN_SCALE;
-	x2*=SCREEN_SCALE; y2*=SCREEN_SCALE;
-	x3*=SCREEN_SCALE; y3*=SCREEN_SCALE;
+	x0*=screen_scale; y0*=screen_scale;
+	x1*=screen_scale; y1*=screen_scale;
+	x2*=screen_scale; y2*=screen_scale;
+	x3*=screen_scale; y3*=screen_scale;
 
 	glBegin(GL_TRIANGLE_STRIP);
 	glTexCoord2d(0, 0);
@@ -1005,13 +1008,13 @@ void gfx_drawMeshFence() {
 			if (g_track_sel == 2) {
 				strip = 4;
 				texture = g_terrain_texId[chunk * 10 + strip];
-				if (texture == 14) {
+				if (texture == 17) {
 					gfx_drawRoadStrip(chunk, strip, texture);
 				}
 
 				strip = 9;
 				texture = g_terrain_texId[chunk * 10 + strip];
-				if (texture == 17) {
+				if (texture == 14) {
 					gfx_drawRoadStrip(chunk, strip, texture);
 				}
 			}
@@ -1162,10 +1165,10 @@ void gfx_drawRoad(int isMirror) {
 }
 
 void gfx_drawSprite(int x1, int y1, int x2, int y2, unsigned int texId) {
-	x1 *= SCREEN_SCALE;
-	x2 *= SCREEN_SCALE;
-	y1 *= SCREEN_SCALE;
-	y2 *= SCREEN_SCALE;
+	x1 *= screen_scale;
+	x2 *= screen_scale;
+	y1 *= screen_scale;
+	y2 *= screen_scale;
 	glBindTexture(GL_TEXTURE_2D, texId);
 	glBegin(GL_TRIANGLE_STRIP);
 	glTexCoord2d(0, 0);
@@ -1189,13 +1192,13 @@ void gfx_draw_hud() {
 	float c,s,r;
 	int v;
 
-	glViewport(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
+	glViewport(0, 0, screen_width, screen_height);
 	gluPerspective(90.0, 1.0, 0.1, 10);
 	glClear(GL_DEPTH_BUFFER_BIT);
 	glDisable(GL_DEPTH_TEST);
     glMatrixMode(GL_PROJECTION);
 	glLoadIdentity();
-	glOrtho(0.0, SCREEN_WIDTH, SCREEN_HEIGHT, 0.0, -1.0, 10.0);
+	glOrtho(0.0, screen_width, screen_height, 0.0, -1.0, 10.0);
 	glPolygonMode(GL_FRONT, GL_FILL);
 	glMatrixMode(GL_MODELVIEW);
 	glLoadIdentity();
@@ -1247,7 +1250,7 @@ void gfx_draw_hud() {
 	matrix[0] = c; matrix[1] = -s; matrix[2] = 0; matrix[3] = 0;
 	matrix[4] = s; matrix[5] = c; matrix[6] = 0; matrix[7] = 0;
 	matrix[8] = 0; matrix[9] = 0; matrix[10] = 0; matrix[11] = 0;
-	matrix[12] = 58 * SCREEN_SCALE; matrix[13] = 200 * SCREEN_SCALE; matrix[14] = 0; matrix[15] = 1;
+	matrix[12] = 58 * screen_scale; matrix[13] = 200 * screen_scale; matrix[14] = 0; matrix[15] = 1;
 	glLoadMatrixf(matrix);
 	gfx_drawSprite(-2, 30, +2, 0, g_hud_texPkt[16]);
 
@@ -1260,7 +1263,7 @@ void gfx_draw_hud() {
 	matrix[0] = c; matrix[1] = -s; matrix[2] = 0; matrix[3] = 0;
 	matrix[4] = s; matrix[5] = c; matrix[6] = 0; matrix[7] = 0;
 	matrix[8] = 0; matrix[9] = 0; matrix[10] = 0; matrix[11] = 0;
-	matrix[12] = 58 * SCREEN_SCALE; matrix[13] = 200 * SCREEN_SCALE; matrix[14] = 0; matrix[15] = 1;
+	matrix[12] = 58 * screen_scale; matrix[13] = 200 * screen_scale; matrix[14] = 0; matrix[15] = 1;
 	glLoadMatrixf(matrix);
 	gfx_drawSprite(-2, 40, +2, 0, g_hud_texPkt[15]);
 
@@ -1275,10 +1278,10 @@ void gfx_rear_view_mirror(int x, int y) {
 	int i = 0;
 	float x1, y1, x2, y2;
 
-	x1 = (g_dash_constants.rear_view[0] + x) * SCREEN_SCALE;
-	y1 = (g_dash_constants.rear_view[1] - y) * SCREEN_SCALE;
-	x2 = g_dash_constants.rear_view[2] * SCREEN_SCALE;
-	y2 = g_dash_constants.rear_view[3] * SCREEN_SCALE;
+	x1 = (g_dash_constants.rear_view[0] + x) * screen_scale;
+	y1 = (g_dash_constants.rear_view[1] - y) * screen_scale;
+	x2 = g_dash_constants.rear_view[2] * screen_scale;
+	y2 = g_dash_constants.rear_view[3] * screen_scale;
 
 	glMatrixMode(GL_PROJECTION);
 	glLoadIdentity();
@@ -1313,38 +1316,44 @@ int shift_pos_x[8] = { 1, 0, -1, -1,  0, 0,  1, 1 };
 int shift_pos_y[8] = { 1, 0, -1, +1, -1, 1, -1, 1 };
 int shift_pos_x_dogleg[8] = { -1, 0, -1,  0, 0,  1,  1, 2 };
 int shift_pos_y_dogleg[8] = { -1, 0, +1, -1, 1, -1, +1, -1 };
-int knobX = 280;
-int knobY = 200;
+int knobX = 0;
+int knobY = 0;
 
 void gfx_draw_dashboard() {
 	float c,s,r;
-	int x,y,i;
+	int i;
+	int gx, gy;
+	int rx, ry;
+	int sx, sy;
 
 	if (g_dash_constants.num_panels == 0) {
 		return;
 	}
 
-	x = (player_car_ptr->body_roll >> 15) - 10;
-	y = (player_car_ptr->body_pitch >> 15) - 10;
+	sx = (screen_width_scaled - 320) / 2;
+	sy = (screen_height_scaled - 240) / 2;
+
+	rx = (player_car_ptr->body_roll >> 15) - 10 + sx;
+	ry = (player_car_ptr->body_pitch >> 15) - 10 + sy;
 
 	// rear view mirror
-	gfx_rear_view_mirror(x, y);
+	gfx_rear_view_mirror(rx, ry);
 
 	// reset projection
-	glViewport(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
+	glViewport(0, 0, screen_width, screen_height);
 	gluPerspective(90.0, 1.0, 0.1, 10);
 	glClear(GL_DEPTH_BUFFER_BIT);
 	glDisable(GL_DEPTH_TEST);
 	glMatrixMode(GL_PROJECTION);
 	glLoadIdentity();
-	glOrtho(0.0, SCREEN_WIDTH, SCREEN_HEIGHT, 0.0, -1.0, 10.0);
+	glOrtho(0.0, screen_width, screen_height, 0.0, -1.0, 10.0);
 	glPolygonMode(GL_FRONT, GL_FILL);
 	glMatrixMode(GL_MODELVIEW);
 	glLoadIdentity();
 	glColor4f(1, 1, 1, 1);
 
 	// dash
-	gfx_drawSprite(x, y, 340+x, 260+y, g_dash_texPkt[0]);
+	gfx_drawSprite(rx, ry, 340 + rx, 260 + ry, g_dash_texPkt[0]);
 
 	// speedo needle
 	if (player_car_ptr->car_model_id != 3) { // CZR1 digital speedo
@@ -1356,15 +1365,15 @@ void gfx_draw_dashboard() {
 		matrix[0] = c; matrix[1] = -s; matrix[2] = 0; matrix[3] = 0;
 		matrix[4] = s; matrix[5] = c; matrix[6] = 0; matrix[7] = 0;
 		matrix[8] = 0; matrix[9] = 0; matrix[10] = 0; matrix[11] = 0;
-		matrix[12] = (g_dash_constants.speedo_pos_x+x) * SCREEN_SCALE; matrix[13] = (g_dash_constants.speedo_pos_y+y) * SCREEN_SCALE; matrix[14] = 0; matrix[15] = 1;
+		matrix[12] = (g_dash_constants.speedo_pos_x+rx) * screen_scale; matrix[13] = (g_dash_constants.speedo_pos_y+ry) * screen_scale; matrix[14] = 0; matrix[15] = 1;
 		glLoadMatrixf(matrix);
 
 		glColor3f(0.9f, 0.3f, 0.1f);
 		glBegin(GL_TRIANGLE_STRIP);
-		glVertex3f(-SCREEN_SCALE, 0, 0);
-		glVertex3f(+SCREEN_SCALE, 0, 0);
-		glVertex3f(-SCREEN_SCALE, g_dash_constants.gauge_needle_length * SCREEN_SCALE, 0);
-		glVertex3f(+SCREEN_SCALE, g_dash_constants.gauge_needle_length * SCREEN_SCALE, 0);
+		glVertex3f(-screen_scale, 0, 0);
+		glVertex3f(+screen_scale, 0, 0);
+		glVertex3f(-screen_scale, g_dash_constants.gauge_needle_length * screen_scale, 0);
+		glVertex3f(+screen_scale, g_dash_constants.gauge_needle_length * screen_scale, 0);
 		glEnd();
 	}
 
@@ -1379,15 +1388,15 @@ void gfx_draw_dashboard() {
 	matrix[0] = c; matrix[1] = -s; matrix[2] = 0; matrix[3] = 0;
 	matrix[4] = s; matrix[5] = c; matrix[6] = 0; matrix[7] = 0;
 	matrix[8] = 0; matrix[9] = 0; matrix[10] = 0; matrix[11] = 0;
-	matrix[12] = (g_dash_constants.tacho_pos_x+x) * SCREEN_SCALE; matrix[13] = (g_dash_constants.tacho_pos_y+y) * SCREEN_SCALE; matrix[14] = 0; matrix[15] = 1;
+	matrix[12] = (g_dash_constants.tacho_pos_x+rx) * screen_scale; matrix[13] = (g_dash_constants.tacho_pos_y+ry) * screen_scale; matrix[14] = 0; matrix[15] = 1;
 	glLoadMatrixf(matrix);
 
 	glColor3f(0.9f, 0.3f, 0.1f);
 	glBegin(GL_TRIANGLE_STRIP);
-	glVertex3f(-SCREEN_SCALE, 0, 0);
-	glVertex3f(+SCREEN_SCALE, 0, 0);
-	glVertex3f(-SCREEN_SCALE, g_dash_constants.gauge_needle_length * SCREEN_SCALE, 0);
-	glVertex3f(+SCREEN_SCALE, g_dash_constants.gauge_needle_length * SCREEN_SCALE, 0);
+	glVertex3f(-screen_scale, 0, 0);
+	glVertex3f(+screen_scale, 0, 0);
+	glVertex3f(-screen_scale, g_dash_constants.gauge_needle_length * screen_scale, 0);
+	glVertex3f(+screen_scale, g_dash_constants.gauge_needle_length * screen_scale, 0);
 	glEnd();
 
 	//steering wheel
@@ -1399,7 +1408,7 @@ void gfx_draw_dashboard() {
 	matrix[0] = c; matrix[1] = -s; matrix[2] = 0; matrix[3] = 0;
 	matrix[4] = s; matrix[5] = c; matrix[6] = 0; matrix[7] = 0;
 	matrix[8] = 0; matrix[9] = 0; matrix[10] = 0; matrix[11] = 0;
-	matrix[12] = (g_dash_constants.steer_pos_x+x) * SCREEN_SCALE; matrix[13] = (g_dash_constants.steer_pos_y+y) * SCREEN_SCALE; matrix[14] = 0; matrix[15] = 1;
+	matrix[12] = (g_dash_constants.steer_pos_x+rx) * screen_scale; matrix[13] = (g_dash_constants.steer_pos_y+ry) * screen_scale; matrix[14] = 0; matrix[15] = 1;
 	glLoadMatrixf(matrix);
 	gfx_drawSprite(-g_dash_constants.steer_size, g_dash_constants.steer_size, g_dash_constants.steer_size, -g_dash_constants.steer_size, g_dash_texPkt[1]);
 	glBindTexture(GL_TEXTURE_2D, 0);
@@ -1410,27 +1419,32 @@ void gfx_draw_dashboard() {
 
 	// gear shift animation
 	if (player_car_ptr->gear_shift_interval) {
+		if (knobX == 0) {
+			knobX = 280 + sx;
+			knobY = 200 + sy;
+		}
+
 		if (player_car_ptr->car_model_id == 4) { // F512TR dogleg
-			x = shift_pos_x_dogleg[player_car_ptr->gear_selected + 2];
-			y = shift_pos_y_dogleg[player_car_ptr->gear_selected + 2];
+			gx = shift_pos_x_dogleg[player_car_ptr->gear_selected + 2];
+			gy = shift_pos_y_dogleg[player_car_ptr->gear_selected + 2];
 		} else {
-			x = shift_pos_x[player_car_ptr->gear_selected + 2];
-			y = shift_pos_y[player_car_ptr->gear_selected + 2];
+			gx = shift_pos_x[player_car_ptr->gear_selected + 2];
+			gy = shift_pos_y[player_car_ptr->gear_selected + 2];
 		}
 
 		if (player_car_ptr->car_model_id == 1 || player_car_ptr->car_model_id == 4) {
 			// gated shifters
-			gfx_drawSprite(270, 190, 310, 230, g_dash_texPkt[3]);
-			knobX -= (knobX - (x * 10 + 280)) >> 1;
-			knobY -= (knobY - (y * 10 + 200)) >> 1;
-			gfx_drawSprite(knobX, knobY, knobX + 20, knobY + 20, g_dash_texPkt[2]);
+			gfx_drawSprite(270 + sx, 190 + sy, 310 + sx, 230 + sy, g_dash_texPkt[3]);
+			knobX -= (knobX - (gx * 10 + 280)) >> 1;
+			knobY -= (knobY - (gy * 10 + 200)) >> 1;
+			gfx_drawSprite(knobX + sx, knobY + sy, knobX + 20 + sx, knobY + 20 + sy, g_dash_texPkt[2]);
 		} else {
 			// leather covered lever
-			gfx_drawSprite(270, 190, 310, 230, g_dash_texPkt[6]);
+			gfx_drawSprite(270 + sx, 190 + sy, 310 + sx, 230 + sy, g_dash_texPkt[6]);
 			for (i = 0; i < 4; i++) {
-				knobX -= (knobX - (x * i * 4 + 280)) >> 1;
-				knobY -= (knobY - (y * i * 4 + 200)) >> 1;
-				gfx_drawSprite(knobX, knobY, knobX + 20, knobY + 20, g_dash_texPkt[5 - i]);
+				knobX -= (knobX - (gx * i * 4 + 280)) >> 1;
+				knobY -= (knobY - (gy * i * 4 + 200)) >> 1;
+				gfx_drawSprite(knobX + sx, knobY + sy, knobX + 20 + sx, knobY + 20 + sy, g_dash_texPkt[5 - i]);
 			}
 		}
 	}
@@ -1487,8 +1501,8 @@ void gfx_render_scene() {
 
 	glMatrixMode(GL_PROJECTION);
 	glLoadIdentity();
-	glViewport(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
-	gluPerspective(50.0, 1.38, 0.1, 1000);
+	glViewport(0, 0, screen_width, screen_height);
+	gluPerspective(50.0, screen_aspect_ratio, 0.1, 1000);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 	gfx_drawHorizon();
