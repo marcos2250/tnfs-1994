@@ -6,6 +6,7 @@
 #include "tnfs_math.h"
 #include "tnfs_base.h"
 #include "tnfs_collision_3d.h"
+#include "tnfs_collision_2d.h"
 #include "tnfs_files.h"
 
 int g_ai_frame_counter = 4;
@@ -2422,8 +2423,19 @@ void tnfs_player_pull_over(tnfs_car_data *car) {
 }
 
 
-void FUN_00004e28(tnfs_car_data *car) {
-	// stub
+void tnfs_collision_scenery_detect(tnfs_car_data *car) {
+	// stub simplified version
+	tnfs_scenery_object * obj;
+
+	for (int i = 0; i < 1000; i++) {
+		obj = &g_scenery_object[i];
+		if (obj->track_slice == player_car_ptr->track_slice) {
+			if (tnfs_collision_scenery(car, obj->position.x, obj->position.y, obj->position.z)) {
+				obj->state = 1;
+			}
+		}
+		if (obj->track_slice > player_car_ptr->track_slice) break;
+	}
 }
 
 void tnfs_ai_collision_handler() {
@@ -2493,7 +2505,7 @@ void tnfs_ai_collision_handler() {
 								< ((track_data[car1->track_slice].num_lanes & 0xf) * 40
 										+ (track_data[car1->track_slice].roadLeftMargin >> 3) * -0x100
 										* (track_data[car1->track_slice].num_lanes >> 4)))) {
-					FUN_00004e28(car1);
+					tnfs_collision_scenery_detect(car1);
 				}
 			}
 		}

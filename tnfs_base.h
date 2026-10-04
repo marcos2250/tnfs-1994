@@ -39,6 +39,7 @@ typedef struct tnfs_scenery_object {
 	int object_model_id;
 	float orientation;
 	tnfs_vec3 position;
+	char state;
 } tnfs_scenery_object;
 
 typedef struct tnfs_scenery_descriptor {

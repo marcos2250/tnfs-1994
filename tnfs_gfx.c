@@ -130,7 +130,7 @@ void UnloadCel(CCB * cel) {
 Err DrawScreenCels(Item screenItem, CCB *cel) {
 	int top, left;
 	float hdx, hdy, vdx, vdy, ddx, ddy, aux_d;
-	int x0, y0, x1, y1, x2, y2, x3, y3;
+	float x0, y0, x1, y1, x2, y2, x3, y3;
 
 	top = cel->ccb_YPos;
 	if (cel->ccb_YPos > 0x10000) {
@@ -857,6 +857,9 @@ void gfx_drawSimpleObject(tnfs_scenery_object * object) {
 	glTranslatef(((float) (object->position.x - camera.position.x)) / 0x10000,
 				 ((float) (object->position.y - camera.position.y)) / 0x10000,
 			     ((float)(-object->position.z + camera.position.z)) / 0x10000);
+	if (object->state) {
+		glRotatef(-80, 1, 0, 0);
+	}
 	glRotatef(object->orientation, 0, 1, 0);
 
 	glColor3f(1.0f, 1.0f, 1.0);

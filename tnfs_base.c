@@ -856,8 +856,11 @@ void tnfs_sfx_play(int a, int id1, int id2, int volume, int distance, int direct
 			// rollover crash
 			sfx_play_sound(7, 0, 0.25f, vol, dir);
 		} else if (id2 == 9) {
-			//fence collision
+			// fence collision
 			sfx_play_sound(14, 0, 0.25f, vol, dir);
+		} else if (id2 == 10) {
+			// scenery collision
+			sfx_play_sound(2, 0, 0.25f, vol, dir);
 		}
 
 	} else if (id1 == 4) {

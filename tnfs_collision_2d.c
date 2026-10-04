@@ -310,3 +310,60 @@ void tnfs_track_fence_collision(tnfs_car_data *car_data) {
 	}
 }
 
+
+int DAT_80111a7c = 4;
+
+int tnfs_collision_scenery(tnfs_car_data *car, int posX, int posY, int posZ) {
+	int result;
+	int width;
+	int length;
+	int angle;
+	int local_28;
+	int local_24;
+	int cs, sn;
+	int lx, lz;
+	int iVar1;
+
+	angle = car->angle.y >> 8;
+	lx = posX - (car->position).x;
+	lz = posZ - (car->position).z;
+
+	cs = math_cos_2(angle);
+	sn = math_sin_2(angle);
+
+	lx = math_mul(cs, lx);
+	lz = math_mul(sn, lz);
+	width = car->collision_data.size.x >> 1;
+
+	result = 0;
+	if ((lx - lz <= width) && (-width <= lx - lz)) {
+		lx = math_mul(sn, lx);
+		lz = math_mul(cs, lz);
+		length = car->collision_data.size.z >> 1;
+		result = 0;
+		if (lx + lx <= length) {
+			if (lx + lz < -length) {
+				result = 0;
+			} else {
+				iVar1 = DAT_80111a7c;
+				//if (selected_camera != 0) {
+				//	iVar1 = (&DAT_80111a7c)[car->car_id * 0x42];
+				//}
+				if ((car->track_slice - iVar1) + 8U < 0x12) {
+					if (selected_camera == 0) {
+						tnfs_car_local_position_vector(car, &local_28, &local_24);
+					} else if (car->car_id == 0) {
+						local_24 = 2;
+						local_28 = 0x400000;
+					} else {
+						local_24 = 2;
+						local_28 = 0xc00000;
+					}
+					tnfs_sfx_play(-1, 2, 10, 0x10000, local_24, local_28);
+				}
+				result = 1;
+			}
+		}
+	}
+	return result;
+}

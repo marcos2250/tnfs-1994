@@ -248,6 +248,8 @@ int read_tri_file(char * file) {
 	int i, j, k;
 	int pos;
 	int texCount;
+	int chunkCount;
+	unsigned int trkd_index[600];
 
 	ptr = fopen(file,"rb");
 	if (!ptr) {
@@ -262,9 +264,17 @@ int read_tri_file(char * file) {
 		return 0;
 	}
 
-	g_road_node_count = readFixed32(buffer, 4) * 4;
+	chunkCount = readFixed32(buffer, 4);
+	g_road_node_count = chunkCount * 4;
 	g_road_finish_node = g_road_node_count - 0xb5;
 	g_slice_mask = -1;
+
+	//0x98C - TRKD chunks index
+	for (i = 0; i < chunkCount; i++) {
+		fseek(ptr, i*4 + 0x98C, SEEK_SET);
+		fread(buffer, 4, 1, ptr);
+		trkd_index[i] = readFixed32(buffer, 0);
+	}
 
 	// 0x13B4 block: Virtual road / RoadSplinePoint
 	for (i = 0; i < 2400; i++) {
@@ -297,7 +307,7 @@ int read_tri_file(char * file) {
 	}
 
 	// 0x16534 block: Track node AI speed reference
-	for (i = 0; i < 600; i++) {
+	for (i = 0; i < chunkCount; i++) {
 		fseek(ptr, i * 3 + 0x16534, SEEK_SET);
 		fread(buffer, 3, 1, ptr);
 		g_track_speed[i].top_speed = buffer[0];
@@ -329,13 +339,16 @@ int read_tri_file(char * file) {
 		g_scenery_object[i].position.x = readSigned16(buffer, 0xA) * 0x100 + track_data[k].pos.x;
 		g_scenery_object[i].position.y = readSigned16(buffer, 0xC) * 0x100 + track_data[k].pos.y;
 		g_scenery_object[i].position.z = readSigned16(buffer, 0xE) * 0x100 + track_data[k].pos.z;
+		g_scenery_object[i].state = 0;
 	}
 
 	// 0x1B000 terrain mesh block
 	pos = 0x1B000;
 	texCount = 0;
 	k = 0;
-	for (i = 0; i < 600; i++) {
+	for (i = 0; i < chunkCount; i++) {
+		pos = trkd_index[i];
+
 		fseek(ptr, pos, SEEK_SET);
 		fread(buffer, 0x800, 1, ptr);
 		pos += readFixed32(buffer, 4);
@@ -368,15 +381,6 @@ int read_tri_file(char * file) {
 		for (j = 0; j < 33; j++) {
 			g_terrain[k] = ((float) readFixed32(buffer, j * 4 + 0x288)) / 0x10000;
 			k++;
-		}
-		// read to end of chunk
-		fseek(ptr, pos, SEEK_SET);
-		fread(buffer, 0x800, 1, ptr);
-		for (j = 0; j < 0x800; j++) {
-			if (buffer[j] == 'T') {
-				break;
-			}
-			pos++;
 		}
 	}
 
