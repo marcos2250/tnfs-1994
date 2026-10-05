@@ -427,6 +427,7 @@ void tnfs_reset_car(tnfs_car_data *car) {
 	car->unknown_flag_3DD = 0;
 	car->slope_force_lon = 0;
 	car->field_4a9 = 0;
+	car->road_object_id_hint = 0;
 
 	car->position.x = track_data[car->track_slice].pos.x;
 	car->position.y = track_data[car->track_slice].pos.y + 150;

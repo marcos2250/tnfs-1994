@@ -457,6 +457,8 @@ typedef struct tnfs_car_data {
 	int crash_state; //0x4e1 0x520 // 2-normal/player 3-normal/opponent 4-wrecked 6-inactive
 	int car_id; //0x4e5 0x524 //car id number 0..7
 
+	int road_object_id_hint; //0x4f8
+
 	/*
 	 * octal collision state flag:
 	 * 0-disable collision, also enable cop to spawn in parked state (why?)

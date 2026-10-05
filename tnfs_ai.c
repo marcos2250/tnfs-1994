@@ -2424,18 +2424,37 @@ void tnfs_player_pull_over(tnfs_car_data *car) {
 
 
 void tnfs_collision_scenery_detect(tnfs_car_data *car) {
-	// stub simplified version
-	tnfs_scenery_object * obj;
+	tnfs_scenery_object *obj;
+	int index;
 
-	for (int i = 0; i < 1000; i++) {
-		obj = &g_scenery_object[i];
-		if (obj->track_slice == player_car_ptr->track_slice) {
-			if (tnfs_collision_scenery(car, obj->position.x, obj->position.y, obj->position.z)) {
-				obj->state = 1;
+	index = player_car_ptr->road_object_id_hint;
+
+	obj = &g_scenery_object[index];
+	if (obj->track_slice > player_car_ptr->track_slice) {
+		while (index-- > 0) {
+			obj = &g_scenery_object[index];
+			if (obj->track_slice == player_car_ptr->track_slice && obj->state == 0) {
+				if (tnfs_collision_scenery(car, obj->position.x, obj->position.y, obj->position.z)) {
+					obj->state = 1;
+				}
 			}
+			if (obj->track_slice < player_car_ptr->track_slice)
+				break;
 		}
-		if (obj->track_slice > player_car_ptr->track_slice) break;
+	} else {
+		while (index++ < 1000) {
+			obj = &g_scenery_object[index];
+			if (obj->track_slice == player_car_ptr->track_slice && obj->state == 0) {
+				if (tnfs_collision_scenery(car, obj->position.x, obj->position.y, obj->position.z)) {
+					obj->state = 1;
+				}
+			}
+			if (obj->track_slice > player_car_ptr->track_slice)
+				break;
+		}
 	}
+
+	player_car_ptr->road_object_id_hint = index;
 }
 
 void tnfs_ai_collision_handler() {
@@ -2498,13 +2517,8 @@ void tnfs_ai_collision_handler() {
 				iVar2 = car1->car_id;
 			}
 			if ((iVar2 >= 0) && (iVar2 < g_number_of_players)) {
-				if ((((track_data[car1->track_slice].num_lanes & 0xf) * 0x50000
-						+ (track_data[car1->track_slice].roadRightMargin >> 3) * 0x100
-						* (track_data[car1->track_slice].num_lanes & 0xf)) < car1->center_line_distance)
-						|| (car1->center_line_distance
-								< ((track_data[car1->track_slice].num_lanes & 0xf) * 40
-										+ (track_data[car1->track_slice].roadLeftMargin >> 3) * -0x100
-										* (track_data[car1->track_slice].num_lanes >> 4)))) {
+				if (car1->center_line_distance > ((track_data[car1->track_slice].num_lanes & 0xf) * 0x50000)
+				 || car1->center_line_distance < ((track_data[car1->track_slice].num_lanes >> 4) * -0x50000)) {
 					tnfs_collision_scenery_detect(car1);
 				}
 			}
