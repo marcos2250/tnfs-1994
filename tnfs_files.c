@@ -327,19 +327,24 @@ int read_tri_file(char * file) {
 	}
 
 	// 0x17050 scenery objects block
+	g_road_object_count = 1000;
 	for (i = 0; i < 1000; i++) {
 		fseek(ptr, i * 16 + 0x17050, SEEK_SET);
 		fread(buffer, 16, 1, ptr);
-		g_scenery_object[i].track_slice = k = readFixed32(buffer, 0);
-		g_scenery_object[i].object_model_id = buffer[4];
+		g_road_objects[i].slice = k = readFixed32(buffer, 0);
+		g_road_objects[i].object_model_id = buffer[4];
 
-		g_scenery_object[i].orientation = 360 - (((float) track_data[k].heading) / 45.5);
-		g_scenery_object[i].orientation += ((float)buffer[5]) / 256 * -360;
+		g_road_objects[i].orientation = 360 - (((float) track_data[k].heading) / 45.5);
+		g_road_objects[i].orientation += ((float)buffer[5]) / 256 * -360;
 
-		g_scenery_object[i].position.x = readSigned16(buffer, 0xA) * 0x100 + track_data[k].pos.x;
-		g_scenery_object[i].position.y = readSigned16(buffer, 0xC) * 0x100 + track_data[k].pos.y;
-		g_scenery_object[i].position.z = readSigned16(buffer, 0xE) * 0x100 + track_data[k].pos.z;
-		g_scenery_object[i].state = 0;
+		g_road_objects[i].flags = readFixed32(buffer, 6);
+		g_road_objects[i].pos_x = readSigned16(buffer, 0xA);
+		g_road_objects[i].pos_y = readSigned16(buffer, 0xC);
+		g_road_objects[i].pos_z = readSigned16(buffer, 0xE);
+	}
+	// DOS FUN_000447dc / PSX tnfs_signstatus: one zeroed 2-byte entry per road object
+	for (i = 0; i < g_road_object_count; i++) {
+		g_sign_status[i * 2] = 0;
 	}
 
 	// 0x1B000 terrain mesh block

@@ -508,7 +508,7 @@ void gfx_drawSmoke() {
 					 ((float)(-smoke->position.z + camera.position.z)) / 0x10000);
 		glRotatef(-cam_orientation.y, 0, 1, 0);
 
-		w = (smoke->time / 256);
+		w = (smoke->time / 30);
 		glColor4f(1.0f, 1.0f, 1.0f, 0.1f);
 		glDisable(GL_DEPTH_TEST);
 		glPolygonMode(GL_FRONT, GL_FILL);
@@ -839,11 +839,14 @@ void gfx_drawHorizon() {
 	}
 }
 
-void gfx_drawSimpleObject(tnfs_scenery_object * object) {
+void gfx_drawSimpleObject(tnfs_scenery_object * object, int id) {
 	tnfs_scenery_descriptor * model;
 	float w, h;
 	unsigned int t;
+	int node;
+
 	model = &g_scenery_models[object->object_model_id];
+	node = object->slice;
 
 	glMatrixMode(GL_MODELVIEW);
 	glLoadIdentity();
@@ -854,10 +857,10 @@ void gfx_drawSimpleObject(tnfs_scenery_object * object) {
 		glRotatef(cam_orientation.z, 0, 0, 1);
 	}
 	glRotatef(cam_orientation.y, 0, 1, 0);
-	glTranslatef(((float) (object->position.x - camera.position.x)) / 0x10000,
-				 ((float) (object->position.y - camera.position.y)) / 0x10000,
-			     ((float)(-object->position.z + camera.position.z)) / 0x10000);
-	if (object->state) {
+	glTranslatef(((float) (0x100 * object->pos_x + track_data[node].pos.x - camera.position.x)) / 0x10000,
+				 ((float) (0x100 * object->pos_y + track_data[node].pos.y - camera.position.y)) / 0x10000,
+			     ((float)(-0x100 * object->pos_z - track_data[node].pos.z + camera.position.z)) / 0x10000);
+	if (g_sign_status[id * 2]) {
 		glRotatef(-80, 1, 0, 0);
 	}
 	glRotatef(object->orientation, 0, 1, 0);
@@ -901,8 +904,12 @@ void gfx_drawSimpleObject(tnfs_scenery_object * object) {
 
 void gfx_drawObject(tnfs_scenery_object * object) {
 	tnfs_polygon * poly;
-	tnfs_object3d * model = &g_scenery_3d_objects[0];
+	tnfs_object3d * model;
 	int i;
+	int node;
+
+	model = &g_scenery_3d_objects[0];
+	node = object->slice;
 
 	glMatrixMode(GL_MODELVIEW);
 	glLoadIdentity();
@@ -913,9 +920,9 @@ void gfx_drawObject(tnfs_scenery_object * object) {
 		glRotatef(cam_orientation.z, 0, 0, 1);
 	}
 	glRotatef(cam_orientation.y, 0, 1, 0);
-	glTranslatef(((float) (object->position.x - camera.position.x)) / 0x10000,
-				 ((float) (object->position.y - camera.position.y)) / 0x10000,
-			     ((float)(-object->position.z + camera.position.z)) / 0x10000);
+	glTranslatef(((float) (0x100 * object->pos_x + track_data[node].pos.x - camera.position.x)) / 0x10000,
+				 ((float) (0x100 * object->pos_y + track_data[node].pos.y - camera.position.y)) / 0x10000,
+			     ((float)(-0x100 * object->pos_z - track_data[node].pos.z + camera.position.z)) / 0x10000);
 	glRotatef(object->orientation, 0, 1, 0);
 	glScalef(8, 8, 8);
 
@@ -1027,12 +1034,11 @@ void gfx_drawMeshFence() {
 	glBindTexture(GL_TEXTURE_2D, 0);
 }
 
-void gfx_drawRoad(int isMirror) {
+void gfx_drawRoad() {
 	int x;
 	int p1, p2;
 	int chunk, strip, slice;
 	unsigned int texture;
-	int chunk_increment;
 	int count;
 	int i;
 	float h;
@@ -1052,16 +1058,9 @@ void gfx_drawRoad(int isMirror) {
 	glPolygonMode(GL_FRONT, GL_FILL);
 
 	// terrain
-	if (isMirror) {
-		chunk = (camera.track_slice >> 2) - 4;
-		count = 5;
-		chunk_increment = +1;
-	} else {
-		chunk = (camera.track_slice >> 2) + 25;
-		count = 26;
-		chunk_increment = -1;
-	}
-	while(count--) {
+	chunk = (camera.track_slice >> 2) + 26;
+
+	while(chunk--) {
 		for (strip = 0; strip < 10; strip++) {
 			texture = g_terrain_texId[chunk * 10 + strip];
 			if (texture == 0) {
@@ -1080,17 +1079,12 @@ void gfx_drawRoad(int isMirror) {
 
 			gfx_drawRoadStrip(chunk, strip, texture);
 		}
-		chunk += chunk_increment;
 	}
 
 	// fences/tunnel wall
-	if (isMirror) {
-		chunk = (camera.track_slice >> 2) - 4;
-		count = 5;
-	} else {
-		chunk = (camera.track_slice >> 2) + 14;
-		count = 15;
-	}
+	chunk = (camera.track_slice >> 2) + 14;
+	count = 15;
+
 	while (count--) {
 		p1 = chunk * 4;
 		p2 = p1 + 1;
@@ -1142,20 +1136,20 @@ void gfx_drawRoad(int isMirror) {
 				p2++;
 			}
 		}
-		chunk += chunk_increment;
+		chunk--;
 	}
 
 	if (g_track_sel == 3) return;
 
 	//objects
 	for (i = 0; i < 1000; i++) {
-		slice = g_scenery_object[i].track_slice;
+		slice = g_road_objects[i].slice;
 		x = slice - camera.track_slice;
 		if (x < -1 || x > 80) continue;
-		if (g_scenery_models[g_scenery_object[i].object_model_id].type == 1) {
-			gfx_drawObject(&g_scenery_object[i]);
+		if (g_scenery_models[g_road_objects[i].object_model_id].type == 1) {
+			gfx_drawObject(&g_road_objects[i]);
 		} else {
-			gfx_drawSimpleObject(&g_scenery_object[i]);
+			gfx_drawSimpleObject(&g_road_objects[i], i);
 		}
 	}
 
@@ -1165,6 +1159,54 @@ void gfx_drawRoad(int isMirror) {
 	if (g_track_segment == 0 && (g_track_sel == 1 || g_track_sel == 2)) {
 		gfx_drawMeshFence();
 	}
+}
+
+void gfx_drawMirrorRoad() {
+	int chunk, strip;
+	unsigned int texture;
+	int count;
+
+	glMatrixMode(GL_MODELVIEW);
+	glLoadIdentity();
+	if (cam_orientation.x != 0) {
+		glRotatef(cam_orientation.x, 1, 0, 0);
+	}
+	if (cam_orientation.z != 0) {
+		glRotatef(cam_orientation.z, 0, 0, 1);
+	}
+	glRotatef(cam_orientation.y, 0, 1, 0);
+	glTranslatef(cam_position.x, cam_position.y, cam_position.z);
+
+	glColor3f(1.0f, 1.0f, 1.0);
+	glPolygonMode(GL_FRONT, GL_FILL);
+
+	// terrain
+	chunk = (camera.track_slice >> 2) - 4;
+	count = 5;
+
+	while(count--) {
+		for (strip = 0; strip < 10; strip++) {
+			texture = g_terrain_texId[chunk * 10 + strip];
+			if (texture == 0) {
+				continue; // no texture, no render
+			}
+
+			// skip wire fences textures, will be rendered later
+			if (g_track_segment == 0) {
+				if (g_track_sel == 1 && (texture == 19)) {
+					continue;
+				}
+				if (g_track_sel == 2 && (texture == 14 || texture == 17)) {
+					continue;
+				}
+			}
+
+			gfx_drawRoadStrip(chunk, strip, texture);
+		}
+		chunk++;
+	}
+
+	glBindTexture(GL_TEXTURE_2D, 0);
 }
 
 void gfx_drawSprite(int x1, int y1, int x2, int y2, unsigned int texId) {
@@ -1298,7 +1340,7 @@ void gfx_rear_view_mirror(int x, int y) {
 
 	glDisable(GL_DEPTH_TEST);
 	gfx_drawHorizon();
-	gfx_drawRoad(1);
+	gfx_drawMirrorRoad();
 	gfx_drawSmoke();
 
 	for (i = 0; i < g_total_cars_in_scene; i++) {
@@ -1510,7 +1552,7 @@ void gfx_render_scene() {
 
 	gfx_drawHorizon();
 	glEnable(GL_DEPTH_TEST);
-	gfx_drawRoad(0);
+	gfx_drawRoad();
 	glDisable(GL_DEPTH_TEST);
 	gfx_drawShadows();
 

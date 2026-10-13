@@ -56,7 +56,7 @@ void tnfs_engine_rev_limiter(tnfs_car_data *car) {
 	}
 
 	// speed to RPM
-	car->rpm_vehicle = fixmul(fixmul(specs->gear_ratio_table[car->gear_selected + 2], specs->mps_to_rpm_factor), car->speed_drivetrain) >> 16;
+	car->rpm_vehicle = fixmul(fixmul(specs->mps_to_rpm_factor, car->speed_drivetrain), specs->gear_ratio_table[car->gear_selected + 2]) >> 16;
 
 	if (car->rpm_vehicle < 700)
 		car->rpm_vehicle = 700;
@@ -98,7 +98,7 @@ void tnfs_engine_rev_limiter(tnfs_car_data *car) {
 		if (car->gear_selected == -1) {
 			car->rpm_engine -= car->car_specs_ptr->noGasRpmDec >> 1;
 		} else {
-			car->rpm_engine -= car->car_specs_ptr->noGasRpmDec >> 1;
+			car->rpm_engine -= car->car_specs_ptr->noGasRpmDec;
 		}
 		if (car->rpm_engine < specs->rpm_idle) {
 			car->rpm_engine = specs->rpm_idle;
@@ -119,29 +119,22 @@ void tnfs_engine_rev_limiter(tnfs_car_data *car) {
 void tnfs_engine_auto_shift_change(tnfs_car_data *car_data, tnfs_car_specs *car_specs) {
 	int gear;
 	int rpm_vehicle;
-	int downshift_rpm;
 
 	/* 3do version */
 
 	gear = car_data->gear_selected;
 
-	if (gear < (car_specs->number_of_gears - 3) && car_data->rpm_vehicle > car_specs->gear_upshift_rpm[gear]) {
-
-		car_data->rpm_vehicle = fixmul(fixmul(car_specs->gear_ratio_table[gear + 3], car_specs->mps_to_rpm_factor), car_data->speed_local_lon) >> 16;
-
+	if (gear + 3 != car_specs->number_of_gears && car_data->rpm_vehicle > car_specs->gear_upshift_rpm[gear]) {
 		// upshift
+		car_data->rpm_vehicle = fixmul(fixmul(car_data->speed_local_lon, car_specs->mps_to_rpm_factor), car_specs->gear_ratio_table[gear + 3]) >> 16;
 		car_data->gear_selected++;
-		return;
-	}
-
-	rpm_vehicle = fixmul(fixmul(car_specs->gear_ratio_table[gear + 1], car_specs->mps_to_rpm_factor), car_data->speed_local_lon) >> 16;
-
-	downshift_rpm = car_specs->gear_upshift_rpm[gear - 1];
-	downshift_rpm -= fix4(downshift_rpm);
-
-	if (gear > 0 && rpm_vehicle < downshift_rpm) {
-		// downshift
-		car_data->gear_selected--;
+	} else if (gear != 0) {
+		// downshift, when RPM in the lower gear drops below 15/16 of its upshift RPM
+		rpm_vehicle = fixmul(fixmul(car_data->speed_local_lon, car_specs->mps_to_rpm_factor), car_specs->gear_ratio_table[gear + 1]) >> 16;
+		if (rpm_vehicle < fix4(car_specs->gear_upshift_rpm[gear - 1] * 15)) {
+			car_data->rpm_vehicle = rpm_vehicle;
+			car_data->gear_selected--;
+		}
 	}
 }
 
@@ -364,7 +357,6 @@ void tnfs_tire_forces_locked(int *force_lat, int *force_lon, signed int max_grip
 	}
 }
 
-
 /*
  * read grip table for a given slip angle, 2 x 512 bytes
  */
@@ -483,7 +475,6 @@ void tnfs_tire_limit_max_grip(tnfs_car_data *car_data, //
 			}
 		}
 	}
-
 
 	if (&car_data->slide_rear == slide) {
 		if ((*force_lon > 0 && car_data->speed_local_lon > 0) || (*force_lon < 0 && car_data->speed_local_lon < 0)) {
@@ -606,9 +597,7 @@ void tnfs_tire_forces(tnfs_car_data *car, //
 				//f_lat_loc_abs2 = abs(force_lat_local); //pc version
 
 				if (f_lat_loc_abs2 + f_lon_loc_abs2 > max_grip) {
-
 					*skid = 2;
-
 					if (f_lon_loc_abs2 > max_grip) {
 						if (is_drifting == 0 || car->tcs_on) {
 							// powerslide
@@ -662,12 +651,10 @@ void tnfs_tire_forces(tnfs_car_data *car, //
 							}
 						}
 					}
-
 					tnfs_tire_limit_max_grip(car, &force_lat_local, &force_lon_local, max_grip, slide, grip_factor);
 				} else {
 					tnfs_tire_limit_max_grip(car, &force_lat_local, &force_lon_local, max_grip, slide, grip_factor);
 				}
-
 				if (*slide != 0) {
 					*slide <<= 3;
 				}
@@ -710,8 +697,8 @@ void tnfs_tire_forces(tnfs_car_data *car, //
 			*_result_Lon = force_lon_local;
 		}
 	}
-}
 
+}
 
 /*
  * Main physics routine
@@ -838,7 +825,6 @@ void tnfs_physics_update(tnfs_car_data *car_data) {
 			braking_rear = car_specs->max_brake_force;
 		}
 	}
-
 
 	//TCS
 	if (car_data->throttle < 40) {
@@ -1361,7 +1347,6 @@ void tnfs_driving_main(tnfs_car_data *car) {
 	tnfs_height_position(car, 1);
 }
 
-
 /*
  * do the "180 spin" crossing the finish/checkpoint line
  */
@@ -1451,5 +1436,3 @@ void tnfs_driving_checkpoint_flick(tnfs_car_data *car) {
 	//iVar7 = car->speed_local_lon >> 0x1f;
 	//car->speed_local_lon -= -(((car->speed_local_lon + iVar7 * -8) - (iVar7 << 2 < 0)) >> 3);
 }
-
-

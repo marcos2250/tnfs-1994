@@ -34,12 +34,14 @@ typedef struct tnfs_carmodel3d {
 	int lrl0;
 } tnfs_carmodel3d;
 
-typedef struct tnfs_scenery_object {
-	int track_slice;
+typedef struct tnfs_road_object {
+	int slice;
 	int object_model_id;
 	float orientation;
-	tnfs_vec3 position;
-	char state;
+	int flags;
+	short pos_x;
+	short pos_y;
+	short pos_z;
 } tnfs_scenery_object;
 
 typedef struct tnfs_scenery_descriptor {
@@ -168,7 +170,7 @@ typedef struct tnfs_car_specs {
 	 * # when in reality they usually level out. (say at 45 degrees)
 	 */
 	int cutoff_slip_angle; //0xa0
-	
+
 	int normal_coeff_loss; //0xa4
 	int rpm_redline; //0xa8
 	int rpm_idle; //0xac
@@ -444,6 +446,8 @@ typedef struct tnfs_car_data {
 	int field_4a9; //0x4A9
 	int tcs_on; //0x4AD
 	int abs_on; //0x4B1
+	int road_object_slice; //0x4B9 slice of the road object at road_object_index (PSX 0x4f8)
+	int road_object_index; //0x4BD cursor into g_road_objects (PSX 0x4fc)
 	// ...
 	int field_4c5; //0x4C5 checkpoint flick maneuvre
 	int field_4c9; //0x4C9 time since finish line cross
@@ -456,8 +460,6 @@ typedef struct tnfs_car_data {
 
 	int crash_state; //0x4e1 0x520 // 2-normal/player 3-normal/opponent 4-wrecked 6-inactive
 	int car_id; //0x4e5 0x524 //car id number 0..7
-
-	int road_object_id_hint; //0x4f8
 
 	/*
 	 * octal collision state flag:
@@ -742,9 +744,11 @@ extern int g_player_car;
 extern int g_track_sel;
 extern int g_track_segment;
 extern int g_quit_race;
+extern int g_is_playing;
 
 extern struct tnfs_track_data track_data[2400];
 extern struct tnfs_surface_type road_surface_type_array[6];
+extern char g_sign_status[2000]; // "SignStatus": 2 bytes per road object, nonzero once knocked down
 extern struct tnfs_track_speed g_track_speed[600]; // 000FDB8C road speed limit array
 
 extern struct tnfs_car_specs car_specs;
@@ -822,11 +826,11 @@ extern unsigned int g_terrain_texPkt[256];
 extern int g_fences[600];
 extern struct tnfs_object3d g_scenery_3d_objects[1];
 extern struct tnfs_scenery_descriptor g_scenery_models[64];
-extern struct tnfs_scenery_object g_scenery_object[1000];
+extern struct tnfs_road_object g_road_objects[1000];
 extern unsigned int g_scenery_texPkt[256];
 extern unsigned int g_horizon_texPkt[12];
 extern int g_scenery_models_count;
-extern int g_scenery_objects;
+extern int g_road_object_count;
 
 extern unsigned int g_hud_texPkt[30];
 extern unsigned int g_smoke_texPkt[5];
@@ -859,5 +863,8 @@ void tnfs_ai_get_speed_factor(tnfs_car_data *car);
 void tnfs_ai_get_lane_slack(tnfs_car_data *car);
 int tnfs_car_shadow_update(tnfs_car_data *car, int param_2);
 int tnfs_racer_crossed_finish_line(tnfs_car_data *car);
+void tnfs_smoke_particles_emit(tnfs_smoke_puff* smoke, tnfs_car_data* car, int type);
+void tnfs_smoke_particles_reset(tnfs_smoke_puff* smoke);
+void tnfs_smoke_particles_update(tnfs_smoke_puff* smoke, int type);
 
 #endif /* TNFS_BASE_H_ */

@@ -37,6 +37,7 @@ int g_track_sel = 0;
 int g_track_segment = 0;
 int g_race_status = 0;
 int g_quit_race = 0;
+int g_is_playing = 1;
 
 int g_total_cars_in_scene = 7;
 int g_racer_cars_in_scene = 2; // (including player) 001670AB DAT_8010d1c8
@@ -48,6 +49,7 @@ int g_number_of_traffic_cars = 4; //001670BB
 char is_drifting;
 int iSimTimeClock = 0; //60Hz timer counter since sim mode started
 int g_road_node_count = 0;
+char g_sign_status[2000];
 int g_road_finish_node = 0;
 int sound_flag = 0;
 int g_selected_cheat = 0;
@@ -105,10 +107,10 @@ int g_fences[600];
 
 struct tnfs_object3d g_scenery_3d_objects[1];
 struct tnfs_scenery_descriptor g_scenery_models[64];
-struct tnfs_scenery_object g_scenery_object[1000];
+struct tnfs_road_object g_road_objects[1000];
 unsigned int g_scenery_texPkt[256];
-int g_scenery_models_count = 0;
-int g_scenery_objects = 0;
+int g_scenery_models_count;
+int g_road_object_count;
 
 // hud
 unsigned int g_hud_texPkt[30];
@@ -120,7 +122,7 @@ char g_dash_enabled = 1;
 
 // smoke
 unsigned int g_smoke_texPkt[5];
-int g_smoke_delay;
+int g_smoke_delay = 0;
 struct tnfs_smoke_puff g_smoke[SMOKE_PUFFS];
 
 int DAT_800eb6a4 = 0; //800eb6a4
@@ -399,7 +401,11 @@ void tnfs_init_surface_constants() {
 void tnfs_reset_car(tnfs_car_data *car) {
 
 	car->gear_selected = -1; //-2 Reverse, -1 Neutral, 0..8 Forward gears
-	car->gear_auto_selected = 2; //0 Manual mode, 1 Reverse, 2 Neutral, 3 Drive
+	if (g_config.skill_level == 2 || g_config.skill_level == 5) {
+		car->gear_auto_selected = 0; //0 Manual mode
+	} else {
+		car->gear_auto_selected = 2; //1 Reverse, 2 Neutral, 3 Drive
+	}
 	car->gear_shift_current = -1;
 	car->gear_shift_previous = -1;
 	car->gear_shift_interval = 16;
@@ -427,7 +433,8 @@ void tnfs_reset_car(tnfs_car_data *car) {
 	car->unknown_flag_3DD = 0;
 	car->slope_force_lon = 0;
 	car->field_4a9 = 0;
-	car->road_object_id_hint = 0;
+	car->road_object_index = 0;
+	car->road_object_slice = 0;
 
 	car->position.x = track_data[car->track_slice].pos.x;
 	car->position.y = track_data[car->track_slice].pos.y + 150;
@@ -1311,26 +1318,51 @@ int tnfs_car_shadow_update(tnfs_car_data *car, int param_2) {
 	return uVar1;
 }
 
-void tnfs_smoke_update() {
-	int i;
-	for (i = 0; i < SMOKE_PUFFS; i++) {
-		g_smoke[i].texId = i & 3;
-		if (g_smoke[i].time < 0) {
-			if (is_drifting && g_smoke_delay <= 0) {
-				g_smoke_delay = 20;
-				g_smoke[i].position.x = -fixmul(math_sin_3(player_car_ptr->angle.y), player_car_ptr->car_length / 2);
-				g_smoke[i].position.x +=  player_car_ptr->position.x;
-				g_smoke[i].position.z = -fixmul(math_cos_3(player_car_ptr->angle.y), player_car_ptr->car_length / 2);
-				g_smoke[i].position.z += player_car_ptr->position.z;
+void tnfs_smoke_particles_reset(tnfs_smoke_puff* smoke) {
+	for (int i = 0; i < SMOKE_PUFFS; i++) {
+		g_smoke[i].time = 0;
+	}
+}
 
-				g_smoke[i].position.y = player_car_ptr->position.y;
-				g_smoke[i].time = 0xFF;
-			}
-			g_smoke_delay--;
-		} else {
-			g_smoke[i].time -= 10;
+void tnfs_smoke_particles_emit(tnfs_smoke_puff* smoke, tnfs_car_data* car, int amount) {
+	if (g_smoke_delay > 0) {
+		return;
+	}
+	printf("amount %d\n", amount);
+	if (amount == 0x888) {
+		g_smoke_delay = 30;
+	} else {
+		g_smoke_delay = 3;
+	}
+
+	for (int i = 0; i < SMOKE_PUFFS; i++) {
+		if (g_smoke[i].time == 0) {
+			g_smoke[i].position.x = -fixmul(math_sin_3(car->angle.y), car->car_length / 2);
+			g_smoke[i].position.x +=  car->position.x;
+			g_smoke[i].position.z = -fixmul(math_cos_3(car->angle.y), car->car_length / 2);
+			g_smoke[i].position.z += car->position.z;
+			g_smoke[i].position.y = car->position.y;
+			g_smoke[i].time = 30;
+			g_smoke[i].texId = i & 3;
+			break;
 		}
 	}
+}
+
+void tnfs_smoke_particles_update(tnfs_smoke_puff* smoke, int amount) {
+	//stub
+}
+
+void tnfs_smoke_update() {
+	for (int i = 0; i < SMOKE_PUFFS; i++) {
+		if (g_smoke[i].time > 0) {
+			g_smoke[i].time--;
+		}
+	}
+	if (is_drifting) {
+		tnfs_smoke_particles_emit(g_smoke, player_car_ptr, 0x5555);
+	}
+	g_smoke_delay--;
 }
 
 
@@ -1515,7 +1547,7 @@ void tnfs_update() {
 
 		if ((car->field_4e9 & 4) == 0) {
 			//disabled car
-			tnfs_ai_hidden_traffic(car);
+			tnfs_ai_hidden_traffic_main(car);
 			continue;
 		}
 
