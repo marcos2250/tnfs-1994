@@ -1014,6 +1014,7 @@ void tnfs_physics_update(tnfs_car_data *car_data) {
 		}
 	}
 
+	// race starts when player starts moving
 	if (g_stats_data.reaction_time == 0) {
 		int r0, r12;
 		r0 = abs(car_data->speed_local_lon);
@@ -1030,7 +1031,7 @@ void tnfs_physics_update(tnfs_car_data *car_data) {
 		if (car_data->track_slice <= 97 || car_data->track_slice >= 465) {
 			if (car_data->speed_local_lon < 0x3333) {
 				stats_init_time = iSimTimeClock;
-				stats_init_track_slice = car_data->track_slice_lap;
+				stats_init_track_slice = car_data->track_slice;
 				stats_timer_a = 99999;
 				stats_timer_b = 99999;
 				stats_timer_c = 99999;
@@ -1050,7 +1051,7 @@ void tnfs_physics_update(tnfs_car_data *car_data) {
 						stats_data_ptr->best_accel_time_2 = stats_elapsed_acc_time_1;
 				}
 			}
-			if (car_data->track_slice_lap - stats_init_track_slice > 83) {
+			if (car_data->track_slice - stats_init_track_slice > 83) {
 				stats_elapsed_acc_time_2 = iSimTimeClock - stats_init_time;
 				if (stats_timer_c > iSimTimeClock - stats_init_time && stats_elapsed_acc_time_2 < 1000) {
 					if (stats_elapsed_acc_time_2 < stats_data_ptr->quarter_mile_time) {

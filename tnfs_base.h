@@ -299,27 +299,24 @@ typedef struct tnfs_car_data {
 	tnfs_vec3 position; //0x000
 	tnfs_vec3 angle; //0x00C
 	int steer_angle; //0x018
-	int target_angle; //0x1c
-	int is_crashed; //0x20
-	tnfs_vec9 matrix; //0x24
-	int track_slice; //0x048 track node number
-	int track_slice_lap; //0x04C contiguous lap track node
-	int lap_number; //0x050
-	int speed_x; //0x054
-	int speed_y; //0x058
-	int speed_z; //0x05C
-	int speed_local_lat; //0x060
-	int speed_local_vert; //0x064
-	int speed_local_lon; //0x068
-	int speed_drivetrain; //0x06C
-	int speed; //0x070
-	int angular_speed; //0x074
-	int car_length; //0x078
-	int car_width; //0x07C
-	int center_line_distance; //0x80
-	int side_width; //0x84
-	struct tnfs_car_data * car_data_ptr; //0x088
-	tnfs_vec3 road_fence_normal; //0x08C actually a matrix (tnfs_vec9)
+	int is_crashed; //0x1c
+	tnfs_vec9 matrix; //0x20
+	int track_slice; //0x044 track node number
+	int speed_x; //0x04c
+	int speed_y; //0x050
+	int speed_z; //0x054
+	int speed_local_lat; //0x054
+	int speed_local_vert; //0x058
+	int speed_local_lon; //0x05C
+	int speed_drivetrain; //0x060
+	int speed; //0x064
+	int angular_speed; //0x068
+	int car_length; //0x06C
+	int car_width; //0x070
+	int center_line_distance; //0x74
+	int side_width; //0x78
+	struct tnfs_car_data * car_data_ptr; //0x07C
+	tnfs_vec3 road_fence_normal; //0x080 actually a matrix (tnfs_vec9)
 	tnfs_vec3 road_surface_normal;
 	tnfs_vec3 road_heading;
 	tnfs_vec3 road_position;
@@ -327,12 +324,22 @@ typedef struct tnfs_car_data {
 	int collision_height_offset;
 	tnfs_collision_data collision_data;
 
-	int field_158; //0x158 random group index
-	int car_road_speed; //0x15c
-	int speed_target; //0x160
-	int target_center_line; //0x164
-	int handling_factor[3]; //0x168 - PDN 0x14
-	int handling_factor_inv[3]; //0x16C
+	int field_158; // random group index
+	int car_road_speed; //0x158
+	int speed_target; //0x15C
+	int target_center_line; //0x160
+
+	/*
+	 * #Handling Factor 1 per skill level higher is less affected by curves
+	 * #Relative to the top speed line (512TR)
+	 */
+	int handling_factor[3]; //0x164 - PDN 0x14
+	int handling_factor_inv[3]; //FIX: inverse values
+
+	/*
+	 * #Speed Factor 1 per skill level: higher is faster
+	 * #% of the 512TR's top speed line
+	 */
 	int speed_factor[3]; //0x170 - PDN 0x18
 
 	/*
@@ -544,7 +551,42 @@ typedef struct tnfs_track_speed {
 } tnfs_track_speed;
 
 typedef struct tnfs_ai_skill_cfg {
-	// ...
+
+	/*
+	 * #dpjl 94.07.07: how far the opponent needs to be from you before he starts
+	 * # to try to block you (s.slices)
+	 */
+	int opp_block_look_behind; //0x0
+
+	int opp_block_behind_distance; //?
+
+	/*
+	 * #dpjl 94.07.08: how fast the opponent changes lanes
+	 */
+	int opp_lane_change_speeds; //0x4
+
+	/*
+	 * #dpjl 94.07.08 Limit how far ahead opponents look ahead for oncoming traffic
+	 */
+	int opp_oncoming_look_ahead; //0x8
+
+	/*
+	 * #dpjl 94.07.10ish Opponent will swerve into oncoming lane on tight curves
+	 * #left lane merit = oncoming_corner_swerve[skill]*delta yaw
+	 */
+	int opp_oncoming_corner_swerve; //0xC
+
+	/*
+	 * #dpjl 94.07.10: Opponent will cut corners (go into opposing lanes) on CCW turns
+	 */
+	int opp_cut_corners; //0x10
+
+	/*
+	 * #dpjl 94.07.11: desired speed constant of opponent (c) such that:
+	 * #desired speed = c/2 + players speed/2
+	 * #opp_desired_speed_c:
+	 */
+	int opp_desired_speed_c; //0x14
 
 	/*
 	 * #dpjl 94.07.11: desired speed ahead
@@ -563,8 +605,18 @@ typedef struct tnfs_ai_skill_cfg {
 	 * #when (if) they are finally caught they will get arrested (go to jail
 	 * # don't pass go)
 	 */
-	int max_player_runways; //0x20
-	// ...
+	int play_max_runaways; //0x20
+
+	//#Penalty (in seconds) for a Warning
+	int penalty_for_warning; //0x24
+
+	//#Penalty (in seconds) for a Ticket
+	int penalty_for_ticket; //0x28
+
+	/*
+	 * #number of cars the player has (ie. he can crash this many times per game)
+	 */
+	int number_of_player_cars; //0x2c
 
 	/*
 	 * #Traffic Density (larger number creates less density)
@@ -572,27 +624,20 @@ typedef struct tnfs_ai_skill_cfg {
 	int traffic_density; //0x30
 
 	/*
-	 * #Number of Traffic Cars
+	 * #Number of Traffic Cars (must be less or equal to 4)
 	 */
-	int number_of_traffic_cars; //0x34
+	int number_of_traffic_cars;
 
 	/*
 	 * #Traffic Speed Factors: Traffic Cars will select one of these 4 multipliers,
 	 * # and drive at the "Safe Speed" times this multiplier
 	 */
-	int traffic_speed_factors[4]; //0x38
-
-	/*
-	 * #dpjl 94.07.11: desired speed constant of opponent (c) such that:
-	 * #desired speed = c/2 + players speed/2
-	 * #opp_desired_speed_c:
-	 */
-	int opp_desired_speed_c; //0x48
+	int traffic_speed_factors[4]; //0x34
 
 	/*
 	 * #Traffic Base Speed (km/h) (Originally 150 kmh)
 	 */
-	int traffic_base_speed;
+	int traffic_base_speed; //0x44
 
 	/*
 	 * #Lane Slack.  Determines how close the cars drive along the centre line.  Measured in units from the
@@ -605,52 +650,23 @@ typedef struct tnfs_ai_skill_cfg {
 	 */
 	int opponent_glue_factors[21]; //0x5c
 
-	//#0 don't echo the stats, anything else= echo stats below
-	int echo_stats;
-
-	//#Penalty (in seconds) for a Warning
-	int penalty_for_warning;
-
-	//#Penalty (in seconds) for a Ticket
-	int penalty_for_ticket;
-
-	int penalty_count;
-
-	//#number of cars the player has (ie. he can crash this many times per game)
-	int number_of_player_cars;
-
-	/*
-	 * #dpjl 94.07.07: how far the opponent needs to be from you before he starts
-	 * # to try to block you (s.slices)
-	 */
-	int opp_block_look_behind; //0x5d
-
-	int opp_block_behind_distance; //0x61
-
-	/*
-	 * #dpjl 94.07.08: how fast the opponent changes lanes
-	 */
-	int opp_lane_change_speeds; //0x65
-
-	/*
-	 * #dpjl 94.07.08 Limit how far ahead opponents look ahead for oncoming traffic
-	 */
-	int opp_oncoming_look_ahead; //0x6d
-
-	/*
-	 * #dpjl 94.07.10ish Opponent will swerve into oncoming lane on tight curves
-	 * #left lane merit = oncoming_corner_swerve[skill]*delta yaw
-	 */
-	int opp_oncoming_corner_swerve; //0x71
-
-	/*
-	 * #dpjl 94.07.10: Opponent will cut corners (go into opposing lanes) on CCW turns
-	 */
-	int opp_cut_corners; //0x75
-
 } tnfs_ai_skill_cfg;
 
 typedef struct tnfs_stats_data {
+
+	int segment_time; //0x4
+	int field5_0x8; //0x8
+	int reaction_time; //0xC
+	// ...
+	int bonus_car_track_slice; //0x1C
+	int bonus_car_time; //0x20
+	int bonus_car_flag; //0x24
+	// ...
+	int race_end_reason; //0x14 race ending reason: 1-finished 4-arrested 8-crashed all cars
+	int field_0x18; //0x18 again
+	// ..
+	int field105_0x9c; //0x9c
+	int field106_0xa0; //0xa0
 	// ...
 	int best_accel_time_1; //0x198
 	int best_accel_time_2; //0x19c
@@ -665,15 +681,14 @@ typedef struct tnfs_stats_data {
 	int top_speed; //0x1c4
 	int top_speed_2; //0x1c8
 	// ...
-	int route_time;
-	int segment_time;
-	// ...
-	int cars_crashed;
-	int cars_remaining;
-	int reaction_time;
-	int bonus_car_track_slice;
-	int bonus_car_time;
-	int bonus_car_flag;
+	int cars_crashed; //0x238
+	int field_0x23c; //0x23c
+	int cars_remaining; //0x240
+	int cop_chase_time; //0x244
+
+	//
+	int route_time; //?
+	int field1_0x4; //?
 } tnfs_stats_data;
 
 typedef struct tnfs_random_struct {
@@ -844,6 +859,7 @@ extern struct tnfs_smoke_puff g_smoke[SMOKE_PUFFS];
 // common functions
 void tnfs_init_sim();
 void tnfs_replay_highlight_record(char a);
+void tnfs_race_end();
 void tnfs_camera_set(tnfs_camera * camera, int id);
 void tnfs_reset_car(tnfs_car_data *car);
 void tnfs_update();

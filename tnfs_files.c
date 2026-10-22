@@ -678,7 +678,7 @@ int read_skill_file(int skill) {
 		return 0;
 	}
 
-	g_ai_skill_cfg.echo_stats = readTxtInt(ptr);
+	readTxtInt(ptr); //"echo stats" is ignored
 
 	g_ai_skill_cfg.opp_block_look_behind = readTxtInt(ptr);
 	g_ai_skill_cfg.opp_lane_change_speeds  = readTxtDecimal(ptr);
@@ -689,10 +689,10 @@ int read_skill_file(int skill) {
 	g_ai_skill_cfg.opp_desired_speed_c = math_mul(0x10000, readTxtDecimal(ptr)); //m/s
 	g_ai_skill_cfg.opp_desired_ahead = math_mul(0x10000, readTxtDecimal(ptr)) << 1; //m/s
 	g_ai_skill_cfg.cop_warning_time = readTxtInt(ptr);
-	g_ai_skill_cfg.max_player_runways = readTxtInt(ptr);
+	g_ai_skill_cfg.play_max_runaways = readTxtInt(ptr);
 
-	g_ai_skill_cfg.penalty_for_warning = readTxtDecimal(ptr);
-	g_ai_skill_cfg.penalty_for_ticket = readTxtDecimal(ptr);
+	g_ai_skill_cfg.penalty_for_warning = readTxtDecimal(ptr) * 0x3C;
+	g_ai_skill_cfg.penalty_for_ticket = readTxtDecimal(ptr) * 0x3C;
 	g_ai_skill_cfg.number_of_player_cars = readTxtInt(ptr);
 	g_ai_skill_cfg.traffic_density = readTxtInt(ptr);
 	g_ai_skill_cfg.number_of_traffic_cars = readTxtInt(ptr);
@@ -704,10 +704,9 @@ int read_skill_file(int skill) {
 
 	g_ai_skill_cfg.traffic_base_speed = math_mul(0x471c, readTxtDecimal(ptr)); //convert km/h to m/s
 
-	g_ai_skill_cfg.lane_slack[0] = readTxtDecimal(ptr);
-	g_ai_skill_cfg.lane_slack[1] = readTxtDecimal(ptr);
-	g_ai_skill_cfg.lane_slack[2] = readTxtDecimal(ptr);
-	g_ai_skill_cfg.lane_slack[3] = readTxtDecimal(ptr);
+	for (i = 0; i < 4; i++) {
+		g_ai_skill_cfg.lane_slack[i] = readTxtDecimal(ptr);
+	}
 
 	for (i = 0; i < 20; i++) {
 		g_ai_skill_cfg.opponent_glue_factors[i] = readTxtDecimal(ptr);
@@ -715,10 +714,9 @@ int read_skill_file(int skill) {
 
 	//constants
 	g_ai_skill_cfg.opp_block_behind_distance = 0x50000;
-	g_ai_skill_cfg.penalty_count = 3;
 
 	fclose(ptr);
-	printf("Loaded car specs file %s.\n", file);
+	printf("Loaded skills file %s.\n", file);
 	return 1;
 }
 

@@ -309,3 +309,114 @@ void tnfs_track_fence_collision(tnfs_car_data *car_data) {
 		car_data->speed_y = 0;
 	}
 }
+
+/* 2adf0 */
+void tnfs_track_fence_collision_ai(tnfs_car_data *car) {
+	//FIXME stub
+}
+
+
+/*
+ * Is the road object at (x, y, z) inside the car's footprint; plays the hit sound when close to the camera.
+ * DOS tnfs_collision_sound_00047d9f (0x47d9f), PSX tnfs_collision_scenery (0x8001f0f0), Win95 SE
+ * tnfs_collision_road_object (0x40fef0). y is unused in all three. SE also calls the joystick force feedback
+ * (_Jolt, 0x43cc10) on a hit when it is enabled (DAT_0052b320).
+ */
+int tnfs_collision_road_object(tnfs_car_data *car, int x, int y, int z) {
+	int dx;
+	int dz;
+	int cos;
+	int sin;
+	int lat;
+	int lon;
+	int distance;
+	int direction;
+
+	dx = x - car->position.x;
+	dz = z - car->position.z;
+	cos = math_cos_2(car->angle.y >> 8);
+	sin = math_sin_2(car->angle.y >> 8);
+
+	// The original compares with half the width / length of the car's 3D model (DOS width 0x61d / length 0x619,
+	// SE 0x64e / 0x64a, PSX spec_collision_car_width/length, all computed from the model's vertex extents in the
+	// renderer). The port does not load the model, so the PDN half extents in collision_data.size are used instead.
+	lat = math_mul(cos, dx) - math_mul(sin, dz);
+	if (abs(lat) > car->collision_data.size.x) {
+		return 0;
+	}
+	lon = math_mul(sin, dx) + math_mul(cos, dz);
+	if (abs(lon) > car->collision_data.size.z) {
+		return 0;
+	}
+
+	if ((car->track_slice - g_camera_node) < 10 && (car->track_slice - g_camera_node) > -9) {
+		tnfs_car_local_position_vector(car, &direction, &distance);
+		tnfs_sfx_play(-1, 2, 10, 0x10000, distance, direction);
+	}
+	return 1;
+}
+
+/*
+ * Walks the road objects of the car's slice (cursor road_object_index/slice kept per car) and knocks down the first
+ * sign the car runs over. DOS tnfs_scenery_collision (0x47a7d), PSX tnfs_collision_scenery_detect (0x8001ed38),
+ * Win95 SE tnfs_collision_road_objects (0x40fc64). Every road object is tested, 3D models (prop type 1) too.
+ * The status stores the time of the hit in replay keyframes + 1 (DOS ticks / 0x4b0, PSX and SE / 0x708): a replay
+ * rewind clears the signs knocked at or after the keyframe it restarts from (DOS 0x7085f, SE 0x4501a8).
+ * On a hit, all binaries then invalidate the renderer's cached track vertex lists (DOS 0x62f46, SE 0x43f51c,
+ * PSX 0x80038614 for both views) so the sign is rebuilt lying flat; the port has no renderer.
+ */
+int tnfs_collision_road_objects(tnfs_car_data *car) {
+	int slice;
+	int index;
+	int x;
+	int y;
+	int z;
+
+	slice = car->track_slice;
+
+	// rewind to the first object of this slice
+	while (car->road_object_slice == slice && car->road_object_index != 0) {
+		car->road_object_index--;
+		car->road_object_slice = g_road_objects[car->road_object_index].slice;
+	}
+
+	if (slice < car->road_object_slice || g_road_objects[car->road_object_index + 1].slice == -1) {
+		if (slice < car->road_object_slice) {
+			// objects behind the cursor
+			index = car->road_object_index;
+			while (index != 0) {
+				if (car->road_object_slice == slice && g_sign_status[car->road_object_index * 2] == 0) {
+					x = track_data[slice].pos.x + (g_road_objects[car->road_object_index].pos_x << 8);
+					y = track_data[slice].pos.y + (g_road_objects[car->road_object_index].pos_y << 8);
+					z = track_data[slice].pos.z + (g_road_objects[car->road_object_index].pos_z << 8);
+					if (tnfs_collision_road_object(car, x, y, z)) {
+						g_sign_status[car->road_object_index * 2] = (char)(iSimTimeClock / 0x4b0) + 1; // PSX, SE: / 0x708
+						return 1;
+					}
+				}
+				car->road_object_index--;
+				car->road_object_slice = g_road_objects[car->road_object_index].slice;
+				if (car->road_object_slice < slice) {
+					return 0;
+				}
+				index = car->road_object_index;
+			}
+		}
+	} else {
+		// objects ahead of the cursor
+		do {
+			if (car->road_object_slice == slice && g_sign_status[car->road_object_index * 2] == 0) {
+				x = track_data[slice].pos.x + (g_road_objects[car->road_object_index].pos_x << 8);
+				y = track_data[slice].pos.y + (g_road_objects[car->road_object_index].pos_y << 8);
+				z = track_data[slice].pos.z + (g_road_objects[car->road_object_index].pos_z << 8);
+				if (tnfs_collision_road_object(car, x, y, z)) {
+					g_sign_status[car->road_object_index * 2] = (char)(iSimTimeClock / 0x4b0) + 1; // PSX, SE: / 0x708
+					return 1;
+				}
+			}
+			car->road_object_index++;
+			car->road_object_slice = g_road_objects[car->road_object_index].slice;
+		} while (car->road_object_slice <= slice && g_road_objects[car->road_object_index + 1].slice != -1);
+	}
+	return 0;
+}

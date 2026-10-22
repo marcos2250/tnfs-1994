@@ -209,7 +209,7 @@ void tnfs_camera_update(tnfs_camera *camera) {
 	tnfs_vec3 vecB;
 
 	//FIXME
-	camera->track_slice = camera->track_slice2 = camera->car_ptr_2->track_slice_lap;
+	camera->track_slice = camera->track_slice2 = camera->car_ptr_2->track_slice;
 
 	specs = &g_camera_specs[camera->id];
 

@@ -789,12 +789,15 @@ void tnfs_menu_route() {
 void tnfs_menu_drive_start() {
 	SDL_PauseAudioDevice(audioDevice, 1);
 
+	// read the "skills" file, although the actual program just sets hardcoded constants
+	read_skill_file(g_config.skill_level);
+
 	g_stats_data.segment_time = 0;
 	g_stats_data.route_time = 0;
 	g_stats_data.top_speed = 0;
 	g_stats_data.top_speed_2 = 0;
 	g_stats_data.cars_crashed = 0;
-	g_stats_data.cars_remaining = 2;
+	g_stats_data.cars_remaining = g_ai_skill_cfg.number_of_player_cars;
 	g_stats_data.penalty_count = 0;
 	g_stats_data.warning_count = 0;
 
@@ -802,7 +805,6 @@ void tnfs_menu_drive_start() {
 	g_track_segment = 0;
 	tnfs_race_enter();
 	if (!g_quit_race) {
-		g_stats_data.segment_time = iSimTimeClock;
 		g_stats_data.route_time += g_stats_data.segment_time;
 		tnfs_menu_checkpoint();
 	}
@@ -811,7 +813,6 @@ void tnfs_menu_drive_start() {
 		tnfs_race_enter();
 	}
 	if (!g_quit_race) {
-		g_stats_data.segment_time = iSimTimeClock;
 		g_stats_data.route_time += g_stats_data.segment_time;
 		tnfs_menu_checkpoint();
 	}
@@ -820,7 +821,6 @@ void tnfs_menu_drive_start() {
 		tnfs_race_enter();
 	}
 	if (!g_quit_race) {
-		g_stats_data.segment_time = iSimTimeClock;
 		g_stats_data.route_time += g_stats_data.segment_time;
 		tnfs_menu_finish();
 	}

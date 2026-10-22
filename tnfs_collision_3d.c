@@ -650,6 +650,9 @@ void tnfs_collision_main(tnfs_car_data *car) {
 				car->throttle_previous_pos = 0;
 				car->is_engine_cutoff = 0;
 				car->steer_angle = 0;
+				if (g_is_playing) {
+					g_toast_crash_time = 30;
+				}
 				if (car->gear_auto_selected != 0) {
 					car->gear_auto_selected = 2;
 				}
@@ -677,65 +680,21 @@ void tnfs_collision_main(tnfs_car_data *car) {
 			}
 
 
-//LAB_00003c28 unknown 3DO code 
-// mov        r3,#0x1
-// ldr        r12,[PTR_DAT_00003cf0]
-// str        r3,[r12,#0x0]=>DAT_00041a80
-// ldr        r3,[r8,#0x0]=>DAT_00041a84
-// teq        r3,#0x1
-// bne        LAB_00003cd0
-// ldr        r3,[r1,#0x238]=>DAT_0005b808
-// ldr        r12,[r1,#0x240]=>DAT_0005b810
-// sub        r3,r12,r3
-// ldr        r1,[r1,#0x23c]=>DAT_0005b80c
-// add        r1,r3,r1
-// cmp        r1,#0x0
-// bgt        LAB_00003cd0
-// mov        r1,#0x8
-// str        r1,[r2,#0x14]
-// str        r1,[r2,#0x18]
-// ldr        r1,[->g_sim_time]
-// ldr        r1,[r1,#0x0]
-// ldr        r2,[r2,#0xc]
-// sub        r1,r1,r2
-// ldr        r2,[r0,#0x0]=>DAT_00042360
-// str        r1,[r2,#0x4]!
-// ldr        r1,[r5,#0x0]
-// ldr        r1,[r1,#0x50]
-// add        r1,r1,r1, lsl #0x1
-// mov        r1,r1, lsl #0x1
-// mov        r2,r1, lsl #0x10
-// ldr        r1,[r0,#0x0]=>DAT_00042360
-// str        r2,[r1,#0x8]!
-// ldr        r1,[r0,#0x0]=>DAT_00042360
-// ldr        r2,[r1,#0x9c]
-// teq        r2,#0x0
-// bne        LAB_00003cc8
-// ldr        r2,[PTR_DAT_000033c0]
-// ldr        r2,[r2,#0x0]=>DAT_0003f8fc
-// ldr        r2,[r2,#0x50]
-// add        r2,r2,r2, lsl #0x1
-// mov        r2,r2, lsl #0x1
-// mov        r2,r2, lsl #0x10
-// str        r2,[r1,#0xa0]!
-//LAB_00003cc8
-// ldr        r0,[r0,#0x0]=>DAT_00042360
-// bl         FUN_0002e060
-			/*
-			*PTR_DAT_00003cf0 = 1;
-			if ((puVar3 == 1) &&
-			   ((ptVar6->carsleft_0x240 - ptVar6->crash_count) + ptVar6->carsleft_0x23c < 1)) {
-			   ptVar5->field_0x14 = 8;
-			   ptVar5->field_0x18 = 8;
-			   DAT_00042360->field_4 = iSimTimeClock - ptVar5->field_0xc;
-			   DAT_00042360->field_8 = ptVar4->field_0x50 * 0x60000;
-			  if (DAT_00042360->field_0x9c == 0) {
-				  DAT_00042360->field_0xa0 = PTR_DAT_000033c0->field_0x50 * 0x60000;
-			  }
-			  //LAB_00003cc8
-			  FUN_0002e060(DAT_00042360);
+// LAB_00003c28
+			//*PTR_DAT_00003cf0 = 1;
+			if ((g_is_playing == 1) //
+					&& ((g_stats_data.cars_crashed + g_stats_data.penalty_count) >= g_ai_skill_cfg.number_of_player_cars)) {
+				g_stats_data.race_end_reason = 8;
+				g_stats_data.field_0x18 = 8;
+				g_stats_data.segment_time = iSimTimeClock - g_stats_data.reaction_time;
+				g_stats_data.field5_0x8 = player_car_ptr->track_slice * 0x60000;
+				if (g_stats_data.field105_0x9c == 0) {
+				 	 g_stats_data.field106_0xa0 = player_car_ptr->track_slice * 0x60000;
+				}
+
+				// LAB_00003cc8
+				tnfs_race_end();
 			}
-			*/
 
 //LAB_00003cd0
 			return;

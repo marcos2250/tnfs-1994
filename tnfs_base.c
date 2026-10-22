@@ -475,7 +475,6 @@ void tnfs_reset_car(tnfs_car_data *car) {
 	car->accel_lat = 0;
 	car->accel_lon = 0;
 	car->road_grip_increment = 0;
-	car->lap_number = 1;
 
 	car->world_position = car->position;
 	car->road_ground_position = car->position;
@@ -532,7 +531,6 @@ void tnfs_reset_car(tnfs_car_data *car) {
 
 	// ai car flags
 	car->speed_target = 0;
-	car->target_angle = 0;
 	car->collision_data.field_084 = 0;
 	car->collision_data.field_088 = 0;
 	car->collision_data.field_08c = 0;
@@ -653,8 +651,6 @@ void tnfs_init_car() {
 	car->field_4e9 = 7;
 	car->position.z = 0; //0x600000;
 	car->track_slice = 0x10;
-	car->track_slice_lap = car->track_slice;
-	car->lap_number = 1;
 
 	// net wheel torque values
 	i = 1;
@@ -964,6 +960,12 @@ void tnfs_replay_highlight_record(char a) {
 		printf("replay highlight %i\n", a);
 }
 
+/* FUN_0002e060 */
+void tnfs_race_end() {
+	// STUB: terminate race
+	g_quit_race = g_stats_data.race_end_reason > 1;
+}
+
 /* common original TNFS functions */
 
 void tnfs_initial_position(tnfs_car_data *car) {
@@ -1007,11 +1009,35 @@ void tnfs_define_bonus_car_time() {
 }
 
 int tnfs_racer_crossed_finish_line(tnfs_car_data *car) {
+	int iVar5;
 
 	if (car->track_slice > g_road_finish_node) {
 		tnfs_driving_checkpoint_flick(car);
 
-		//...
+		iVar5 = g_stats_data.field1_0x4;
+
+		if (iVar5 != 2) {
+			iVar5 = g_road_finish_node;
+		}
+		if (iVar5 != 2 && iVar5 != 3) {
+			g_stats_data.field1_0x4 = 2;
+			g_stats_data.segment_time = iSimTimeClock - g_stats_data.reaction_time;
+			g_stats_data.field5_0x8 = g_stats_data.segment_time * 0x60000;
+			g_stats_data.field106_0xa0 = player_car_ptr->track_slice * 0x60000;
+			//PTR_PTR_000178a8[4] = 10;
+			tnfs_replay_highlight_record(100);
+		}
+
+		iVar5 = abs(player_car_ptr->speed_local_lon) + abs(player_car_ptr->speed_local_lat);
+		if (iVar5 > 0x1980) iVar5 = 0x1980;
+		if (iVar5 < -0x1980) iVar5 = -0x1980;
+
+		if (g_stats_data.field1_0x4 != 3) {
+			tnfs_race_end();
+			g_stats_data.field1_0x4 = 3;
+			g_stats_data.race_end_reason = 1;
+			g_stats_data.field_0x18 = 1;
+		}
 
 	} else {
 		g_car_array[0].field_4cd = 0;
@@ -1122,7 +1148,6 @@ int tnfs_track_node_update(tnfs_car_data *car) {
 	node = car->track_slice;
 	changed = tnfs_track_node_find(&car->position, &node);
 	car->track_slice = node;
-	car->track_slice_lap = node;
 	return changed;
 }
 
@@ -1328,9 +1353,8 @@ void tnfs_smoke_particles_emit(tnfs_smoke_puff* smoke, tnfs_car_data* car, int a
 	if (g_smoke_delay > 0) {
 		return;
 	}
-	printf("amount %d\n", amount);
 	if (amount == 0x888) {
-		g_smoke_delay = 30;
+		g_smoke_delay = 10;
 	} else {
 		g_smoke_delay = 3;
 	}
@@ -1350,7 +1374,7 @@ void tnfs_smoke_particles_emit(tnfs_smoke_puff* smoke, tnfs_car_data* car, int a
 }
 
 void tnfs_smoke_particles_update(tnfs_smoke_puff* smoke, int amount) {
-	//stub
+	tnfs_smoke_particles_emit(g_smoke, player_car_ptr, amount);
 }
 
 void tnfs_smoke_update() {
@@ -1388,9 +1412,6 @@ void tnfs_init_sim() {
 	//load track textures
 	sprintf(trkfile, "%s%d", g_Track_files[g_track_sel], g_track_segment + 1);
 	read_track_pkt_file(trkfile);
-
-	//skill
-	read_skill_file(g_config.skill_level);
 
 	g_stats_data.best_accel_time_1 = 99999;
 	g_stats_data.best_accel_time_2 = 99999;
@@ -1456,8 +1477,8 @@ void tnfs_init_sim() {
 		g_total_cars_in_scene = 1;
 	} else {
 		g_number_of_cops = 1;
-		g_number_of_traffic_cars = 4;
-		g_total_cars_in_scene = 7;
+		g_number_of_traffic_cars = g_ai_skill_cfg.number_of_traffic_cars;
+		g_total_cars_in_scene = g_number_of_traffic_cars + 3;
 	}
 
 	if (g_opp_car == 8) { //race against the clock
@@ -1514,15 +1535,6 @@ void tnfs_update() {
 		}
 	}
 
-	//FIX: disable cop if finished or ran away
-	if (g_cop_car_ptr != 0) {
-		if (player_car_ptr->field_4c9 //
-				|| (g_cop_car_ptr->track_slice - player_car_ptr->track_slice) < -20) {
-			g_police_on_chase = 0;
-			g_cop_car_ptr->ai_state = 0x1e8;
-		}
-	}
-
 	if (g_police_ticket_time) {
 		g_police_ticket_time--;
 		if (g_police_ticket_time == 0) {
@@ -1547,7 +1559,22 @@ void tnfs_update() {
 
 		if ((car->field_4e9 & 4) == 0) {
 			//disabled car
+			continue;
+		}
+
+		if (car->crash_state == 6) {
+			//hidden traffic car
 			tnfs_ai_hidden_traffic_main(car);
+			continue;
+		}
+
+		if (car->crash_state == 1) {
+			tnfs_car_wait_after_busted(car);
+			continue;
+		}
+
+		if (car->crash_state == 5) {
+			tnfs_ai_wrecked_wait(car);
 			continue;
 		}
 
