@@ -842,11 +842,11 @@ void tnfs_sfx_play(int a, int id1, int id2, int volume, int distance, int direct
 	if (direction < 0x200000) { //45
 		dir = 0;
 	} else if (direction < 0x600000) { //135
-		dir = -1;
+		dir = +1;
 	} else if (direction < 0xA00000) { //225
 		dir = 0;
 	} else if (direction < 0xE00000) { //295
-		dir = +1;
+		dir = -1;
 	} else {
 		dir = 0;
 	}
@@ -859,6 +859,9 @@ void tnfs_sfx_play(int a, int id1, int id2, int volume, int distance, int direct
 		} else if (id2 == 1) {
 			// rollover crash
 			sfx_play_sound(7, 0, 0.25f, vol, dir);
+		} else if (id2 == 8) {
+			// fence collision (ai cars)
+			sfx_play_sound(13, 0, 0.25f, vol, dir);
 		} else if (id2 == 9) {
 			// fence collision
 			sfx_play_sound(14, 0, 0.25f, vol, dir);
@@ -903,7 +906,7 @@ void sfx_update() {
 	if (g_cop_car_ptr && ((g_cop_car_ptr->ai_state & 0x408) == 0x408) && (g_cop_car_ptr->crash_state != 4)) {
 		f = abs(camera.track_slice - g_cop_car_ptr->track_slice);
 		f = (100 / f) / 100;
-		d =  g_cop_car_ptr->center_line_distance - car->center_line_distance;
+		d =  car->center_line_distance - g_cop_car_ptr->center_line_distance;
 		d /= 100000;
 	} else {
 		f = 0;
@@ -942,7 +945,7 @@ void sfx_update() {
 	sfx_play_sound(18, 1, f, f, 0);
 
 	// cop radar detector
-	if (g_cop_car_ptr != 0 && g_cop_car_ptr->track_slice > 1) {
+	if (g_cop_car_ptr != 0 && (g_cop_car_ptr->track_slice > 1) && (g_cop_car_ptr->field_4e9 & 4)) {
 		if (g_cop_radar_time < 0) {
 			g_cop_radar_time = abs(g_cop_car_ptr->track_slice - player_car_ptr->track_slice);
 			if (g_cop_radar_time < 40) {

@@ -15,6 +15,8 @@ float screen_aspect_ratio = 1.38;
 int screen_width_scaled = 320;
 int screen_height_scaled = 240;
 
+int viewing_distance = 100; //slices
+
 byte g_backbuffer[307200];
 byte g_fontdata[4464];
 int g_filesize = 0;
@@ -103,6 +105,7 @@ CCB * ParseCel(void *inBuf, int32 inBufSize) {
 	output->ccb_DDX = bswap16(input->ccb_DDX);
 	output->ccb_DDY = bswap16(input->ccb_DDY);
 
+	free(image);
 	return output;
 }
 
@@ -1034,6 +1037,8 @@ void gfx_drawMeshFence() {
 	glBindTexture(GL_TEXTURE_2D, 0);
 }
 
+int object_hint = 0;
+
 void gfx_drawRoad() {
 	int x;
 	int p1, p2;
@@ -1058,9 +1063,10 @@ void gfx_drawRoad() {
 	glPolygonMode(GL_FRONT, GL_FILL);
 
 	// terrain
-	chunk = (camera.track_slice >> 2) + 26;
+	chunk = ((camera.track_slice + viewing_distance) >> 2) - 1;
+	count = viewing_distance >> 2;
 
-	while(chunk--) {
+	while(count--) {
 		for (strip = 0; strip < 10; strip++) {
 			texture = g_terrain_texId[chunk * 10 + strip];
 			if (texture == 0) {
@@ -1079,11 +1085,12 @@ void gfx_drawRoad() {
 
 			gfx_drawRoadStrip(chunk, strip, texture);
 		}
+		chunk--;		
 	}
 
 	// fences/tunnel wall
-	chunk = (camera.track_slice >> 2) + 14;
-	count = 15;
+	chunk = ((camera.track_slice + viewing_distance) >> 2) - 1;
+	count = viewing_distance >> 2;
 
 	while (count--) {
 		p1 = chunk * 4;
@@ -1139,18 +1146,27 @@ void gfx_drawRoad() {
 		chunk--;
 	}
 
-	if (g_track_sel == 3) return;
+	if (g_track_sel == 3) return; //test track
 
 	//objects
-	for (i = 0; i < 1000; i++) {
+	i = object_hint + 100;
+	if (i > 1000) i = 1000;
+	while (i--) {
 		slice = g_road_objects[i].slice;
 		x = slice - camera.track_slice;
-		if (x < -1 || x > 80) continue;
+		if (x < -1 || x > viewing_distance) continue;
 		if (g_scenery_models[g_road_objects[i].object_model_id].type == 1) {
 			gfx_drawObject(&g_road_objects[i]);
 		} else {
 			gfx_drawSimpleObject(&g_road_objects[i], i);
 		}
+	}
+	// find nearest object id
+	x = g_road_objects[object_hint].slice;
+	if (object_hint < 1000 && x < camera.track_slice) {
+		object_hint++;
+	} else if (object_hint > 0 && x > camera.track_slice) {
+		object_hint--;
 	}
 
 	glBindTexture(GL_TEXTURE_2D, 0);

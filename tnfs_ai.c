@@ -301,11 +301,10 @@ int carmodel = 9;
 void tnfs_ai_respawn_do(tnfs_car_data *car, int node, int side, int centerline, int flag) {
 	tnfs_vec9 mat_car_rotate;
 	int node_new = 0;
-	int i;
 
 	//FIXME added quirks
-	printf("Respawn car %d, node %d, direction %d, state=%x, f084=%d, f158=%x f4e9=%x\n", //
-			car->car_id, node, side, car->ai_state, car->collision_data.field_084, car->field_158, car->field_4e9);
+	printf("Respawn car %d, node %d, direction %d, centerline=%d, state=%x, f084=%d, f158=%x f4e9=%x\n", //
+			car->car_id, node, side, centerline, car->ai_state, car->collision_data.field_084, car->field_158, car->field_4e9);
 	if ((car->ai_state & 8) && g_police_on_chase) {
 		printf("Forcing cop respawn behind player!!\n");
 		node = player_car_ptr->track_slice - 12;
@@ -313,12 +312,6 @@ void tnfs_ai_respawn_do(tnfs_car_data *car, int node, int side, int centerline, 
 		car->ai_state = 0x831e8;
 		car->speed_target = 0x100000;
 		car->target_center_line = 0;
-	}
-	//don't respawn if there's someone else there already
-	for (i = 0; i < g_total_cars_in_scene; i++) {
-		if (node == g_car_array[i].track_slice) {
-			return;
-		}
 	}
 	// switch car models
 	if ((car->ai_state & 8) == 0) {
@@ -1210,9 +1203,11 @@ void tnfs_ai_driving_main(tnfs_car_data *car) {
 
 	// 3DO specific - AI car fence collision (eg. with crashing sounds etc)
 	if (abs(player_distance) < 0x36) {
-		if (car->center_line_distance < (int) track_data[car->track_slice].roadLeftFence * -0x2000 //
-		|| car->center_line_distance > (int) track_data[car->track_slice].roadRightFence * 0x2000) {
-			tnfs_track_fence_collision_ai(car);
+		if (car->center_line_distance < (int) track_data[car->track_slice].roadLeftMargin * -0x2000 //
+		|| car->center_line_distance > (int) track_data[car->track_slice].roadRightMargin * 0x2000) {
+			if (tnfs_track_fence_collision_ai(car)) {
+				goto LAB_00028be0;
+			}
 		}
 	}
 
@@ -1250,6 +1245,8 @@ void tnfs_ai_driving_main(tnfs_car_data *car) {
 			car->steer_angle = 0;
 		}
 	}
+
+LAB_00028be0:
 
 	// move car
 	car->position.x -= (car->speed_x >> 9) + (car->speed_x >> 5);

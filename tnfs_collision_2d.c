@@ -310,9 +310,229 @@ void tnfs_track_fence_collision(tnfs_car_data *car_data) {
 	}
 }
 
+/* 2b064 */
+void tnfs_collision_rotate_ai(tnfs_car_data *car, int heading, int lon_speed, int fence_side, int flag) {
+	int iVar1;
+	int iVar2;
+	int iVar3;
+	int iVar4;
+
+	iVar4 = -car->steer_angle;
+	if (iVar4 < 0) {
+		iVar4 = iVar4 + 0x1000000;
+	}
+	iVar1 = iVar4;
+	if (0x800000 < iVar4) {
+		iVar1 = 0x1000000 - iVar4;
+	}
+	if (0x400000 < iVar1) {
+		iVar4 = iVar4 + 0x800000;
+		iVar1 = 0x1000000 - iVar4;
+	}
+	if ((0xfffff < lon_speed) && (0x200000 < car->speed)) {
+		iVar3 = lon_speed + -0x60000;
+		if (0x1000000 < iVar4) {
+			iVar4 = iVar4 + -0x1000000;
+		}
+		if (iVar4 < 0x800000) {
+			if (iVar4 < 0) {
+				iVar4 = iVar4 + 7;
+			}
+			iVar4 = iVar4 >> 3;
+		} else {
+			iVar2 = -iVar4 + 0x1000000;
+			if (iVar2 < 0) {
+				iVar2 = -iVar4 + 0x1000007;
+			}
+			iVar4 = 0x1000000 - (iVar2 >> 3);
+		}
+		if (0x800000 < iVar4) {
+			iVar4 = iVar4 + -0x1000000;
+		}
+		if (0xe0000 < iVar3) {
+			iVar3 = 0xe0000;
+		}
+		iVar1 = iVar3 * (iVar1 >> 0x10);
+		if (iVar1 < 0) {
+			iVar1 = iVar1 + 0x3f;
+		}
+		iVar1 = iVar1 >> 6;
+		iVar2 = iVar3 - iVar1;
+		if (iVar4 < 1) {
+			iVar3 = -iVar3;
+			iVar2 = -iVar2;
+		}
+		if (flag == 0) {
+			iVar2 = -iVar2;
+		} else {
+			iVar1 = -iVar1;
+		}
+		if (iVar3 == 0) {
+			return;
+		}
+		iVar1 = iVar1 * 3;
+		if (iVar1 < 0) {
+			iVar1 = iVar1 + 3;
+		}
+		iVar2 = iVar2 * 3;
+		if (iVar2 < 0) {
+			iVar2 = iVar2 + 3;
+		}
+		if (iVar3 < 0) {
+			iVar3 = iVar3 + 3;
+		}
+		tnfs_collision_rollover_start(car, iVar3 >> 2, iVar2 >> 2, iVar1 >> 2);
+		return;
+	}
+	if (flag == 0) {
+		if (0x1000000 < iVar4) {
+			iVar4 = iVar4 + -0x1000000;
+		}
+		if (iVar4 < 0x800000) {
+			if (iVar4 < 0) {
+				iVar4 = iVar4 + 7;
+			}
+			iVar4 = iVar4 >> 3;
+		} else {
+			iVar3 = -iVar4 + 0x1000000;
+			if (iVar3 < 0) {
+				iVar3 = -iVar4 + 0x1000007;
+			}
+			iVar4 = 0x1000000 - (iVar3 >> 3);
+		}
+		if (0x800000 < iVar4) {
+			iVar4 = iVar4 + -0x1000000;
+		}
+		iVar3 = lon_speed * (iVar1 >> 0x10) * 8;
+		if (iVar3 < 0) {
+			iVar3 = iVar3 + 0x3f;
+		}
+		iVar3 = lon_speed * 8 - (iVar3 >> 6);
+		if (iVar4 < 0) {
+			iVar3 = -iVar3;
+		}
+		car->angular_speed = car->angular_speed + iVar3;
+	}
+	if (0x1fffff < iVar1) {
+		return;
+	}
+	if (0x1000000 < iVar4) {
+		iVar4 = iVar4 + -0x1000000;
+	}
+	if (iVar4 < 0x800000) {
+		if (iVar4 < 0) {
+			iVar4 = iVar4 + 7;
+		}
+		iVar4 = iVar4 >> 3;
+	} else {
+		iVar1 = -iVar4 + 0x1000000;
+		if (iVar1 < 0) {
+			iVar1 = -iVar4 + 0x1000007;
+		}
+		iVar4 = 0x1000000 - (iVar1 >> 3);
+	}
+	car->steer_angle = car->steer_angle + iVar4;
+	return;
+}
+
+
 /* 2adf0 */
-void tnfs_track_fence_collision_ai(tnfs_car_data *car) {
-	//FIXME stub
+int tnfs_track_fence_collision_ai(tnfs_car_data *car) {
+	int heading;
+	tnfs_track_data *track;
+	char fence_flag;
+	int iVar4;
+	int iVar6;
+	int iVar7;
+	int fenceSide;
+	int local_44;
+	int local_40;
+	int local_3c;
+	int local_38;
+	int local_34;
+	int centerline;
+	int local_2c;
+
+	track = &track_data[car->track_slice];
+	heading =  track->heading * 0x400;
+
+	centerline = car->center_line_distance;
+
+	if (centerline > (track->roadRightMargin * 0x2000)) {
+		iVar7 = track->roadRightFence * 0x2000 - car->car_width / 2;
+		if (centerline <= iVar7) {
+			return 0;
+		}
+		fenceSide = 0x100;
+		centerline = centerline - (iVar7 + -0x8000);
+		fence_flag = track->fence_flag;
+	} else if (centerline < (track->roadLeftMargin * -0x2000)) {
+		iVar7 = car->car_width / 2 + track->roadLeftFence * -0x2000;
+		if (iVar7 <= centerline) {
+			return 0;
+		}
+		fenceSide = -0x100;
+		centerline = (iVar7 + 0x8000) - centerline;
+		fence_flag = track->fence_flag >> 4;
+	} else {
+		return 0;
+	}
+
+	if ((fence_flag & 0xf) == 0) {
+		local_2c = 0;
+		if (centerline < 1) {
+			centerline = -centerline;
+		}
+		centerline = fenceSide * centerline;
+		if (centerline < 0) {
+			centerline = centerline + 0xfff;
+		}
+		centerline = centerline >> 0xc;
+		math_rotate_2d(centerline, 0, heading, &local_38, &local_3c);
+		(car->position).x = (car->position).x - local_38;
+		(car->position).z = (car->position).z + local_3c;
+		math_rotate_2d(car->speed_x, car->speed_z, -heading, &local_34, &local_2c);
+		iVar7 = abs(local_34);
+		if (0x8000 < iVar7) {
+			tnfs_car_local_position_vector(car, &local_40, &local_44);
+			iVar4 = iVar7;
+			if (0x80000 < iVar7) {
+				iVar4 = 0x80000;
+			}
+			iVar4 = (0x80000 - iVar4) * 1000;
+			if (iVar4 < 0) {
+				iVar4 = iVar4 + 0x7ffff;
+			}
+			local_44 = local_44 + (iVar4 >> 0x13);
+			tnfs_sfx_play(-1, 2, 8, iVar7, local_44, local_40);
+		}
+		iVar4 = iVar7 + -0x30000;
+		if (iVar4 < 0) {
+			iVar4 = 0;
+		}
+		iVar6 = iVar4;
+		if (iVar4 < 0) {
+			iVar6 = iVar4 + 3;
+		}
+		local_34 = fenceSide * (iVar6 >> 2);
+		if (local_34 < 0) {
+			local_34 = local_34 + 0xff;
+		}
+		local_34 = local_34 >> 8;
+		if (0 < local_2c) {
+			iVar4 = -iVar4;
+		}
+		local_2c = local_2c + iVar4;
+		iVar4 = local_2c;
+		if (local_2c < 0) {
+			iVar4 = local_2c + 3;
+		}
+		local_2c = local_2c - (iVar4 >> 2);
+		math_rotate_2d(local_34, local_2c, heading, &car->speed_x, &car->speed_z);
+		tnfs_collision_rotate_ai(car, heading, iVar7, fenceSide, 0);
+		return 1;
+	}
+	return 0;
 }
 
 
