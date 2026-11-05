@@ -30,6 +30,8 @@ tnfs_car_data *g_car_ptr_array[8]; // 00153ba0/00153bec 8010c720/800f7e60
 tnfs_car_data *player_car_ptr;
 tnfs_car_data *g_cop_car_ptr = 0;
 tnfs_ai_skill_cfg g_ai_skill_cfg;
+int g_some_car_array1[8];
+int g_some_car_array2[8];
 
 int g_player_car = 0;
 int g_opp_car = 0;
@@ -68,8 +70,6 @@ int g_toast_crash_time = 0;
 
 tnfs_camera camera;
 int selected_camera = 0;
-
-int g_race_positions[8] = { 7, 6, 5, 4, 3, 2, 1, 0 }; // 00167179
 
 char * g_track_files[4] = { "al", "cl", "cy", "test" };
 char * g_Track_files[4] = { "Al", "Cl", "Cy", "Al" };
@@ -135,8 +135,6 @@ int g_collision_bump_ref = 0x6666; // f99f0 800eae58
 int g_collision_force_carcar = 0; // f9a70
 int g_collision_force_wall = 0; // f9a74;
 int DAT_000F9BB0 = 0;
-int DAT_000f99e4 = 0x10000;
-int DAT_000f99e8 = 0x34000;
 int DAT_000f99ec = 10; //800eae14
 int DAT_000FDB94 = 0;
 int g_lcg_random_mod = 0xFFFF; //800db6bc
@@ -150,6 +148,13 @@ int g_player_id = 0; //16707C
 int g_cam_change_delay = 0; // 00143844
 
 int PTR_DAT_0002ab6c = 4;
+
+// horn of a non-player car: ticks left (decremented by DOS tnfs_sfx_horn_other 0x82cd4, not ported),
+// pitch index (DOS table 0x81aa9) and car slot (sample table 0x81a81: 0x41 slots 0/1, 0x3f others)
+int DAT_000fdcfc = 0; //horn ticks
+int DAT_000fdcf8 = 0; //horn pitch
+int DAT_000fdd00 = 0; //car id
+
 
 void setTerrainVertex(vector3f * vec, int chunk, int slice, int point) {
 	int x = (chunk * 55) + (slice * 33) + (point * 3);
@@ -474,7 +479,6 @@ void tnfs_reset_car(tnfs_car_data *car) {
 	car->tire_grip_loss = 0;
 	car->accel_lat = 0;
 	car->accel_lon = 0;
-	car->road_grip_increment = 0;
 
 	car->world_position = car->position;
 	car->road_ground_position = car->position;
@@ -545,7 +549,6 @@ void tnfs_reset_car(tnfs_car_data *car) {
 	car->field_4c9 = 0;
 	car->field_4cd = 0;
 	car->field_4d1 = 0;
-	car->field_4d3 = 0;
 
 	if (car == player_car_ptr) {
 		// player car
@@ -687,9 +690,9 @@ void tnfs_init_car() {
 	DAT_00011af4 = 0; // 11af4, 3e7d8
 
 	if (g_track_sel == 0 && g_track_segment == 2) { //if Alpine 3rd segment
-		car->surface_type_2 = 3;
+		car->surface_type_ice = 3;
 	} else {
-		car->surface_type_2 = 0;
+		car->surface_type_ice = 0;
 	}
 
 	tnfs_reset_car(car);
@@ -929,10 +932,11 @@ void sfx_update() {
 	sfx_play_sound(11, 1, 0.25f, f, 0);
 
 	// tire screeching
-	if (car->time_off_ground > 0 || car->is_crashed || car->speed == 0) {
+	if (car->time_off_ground > 0 || car->is_crashed || car->speed == 0 || car->surface_type == 0) {
 		f = 0;
 	} else {
-		if (is_drifting) {
+		if (is_drifting //
+			|| (car->is_braking_hard && car->abs_enabled == 0)) {
 			f = 0.5;
 		} else {
 			if (car->tire_skid_front || car->tire_skid_rear) {
@@ -953,6 +957,17 @@ void sfx_update() {
 			}
 		}
 		g_cop_radar_time--;
+	}
+
+	//traffic horn
+	if (DAT_000fdcfc > 5 && DAT_000fdd00 > 0) {
+		DAT_000fdcfc = 0;
+
+		car = g_car_ptr_array[DAT_000fdd00];
+		v = abs(camera.track_slice - car->track_slice);
+		v = (100 / v) / 100;
+
+		sfx_play_sound(16, 0, 0.25f, v, 0);
 	}
 }
 
@@ -977,7 +992,7 @@ void tnfs_initial_position(tnfs_car_data *car) {
 
 	iVar1 = (track_data[10].num_lanes & 0xf) * 0x28 + (track_data[10].roadRightMargin << 3);
 
-	iVar2 = g_race_positions[car->car_id2];
+	iVar2 = car->car_id;
 
 	(car->position).x = (iVar1 * -0x100) / 2 + (iVar2 % 2) * iVar1 * 0x100;
 
@@ -1011,7 +1026,7 @@ void tnfs_define_bonus_car_time() {
 	g_stats_data.bonus_car_time = math_div(value, g_traffic_speeds[g_config.skill_level * 8 + PTR_DAT_0002ab6c]);
 }
 
-int tnfs_racer_crossed_finish_line(tnfs_car_data *car) {
+void tnfs_racer_crossed_finish_line(tnfs_car_data *car) {
 	int iVar5;
 
 	if (car->track_slice > g_road_finish_node) {
@@ -1046,7 +1061,12 @@ int tnfs_racer_crossed_finish_line(tnfs_car_data *car) {
 		g_car_array[0].field_4cd = 0;
 	}
 
-	return 0;
+	if (car->track_slice > g_road_finish_node) {
+		if (g_stats_data.field105_0x9c == 0) {
+			g_stats_data.field105_0x9c = iSimTimeClock - g_stats_data.reaction_time;
+			g_stats_data.field106_0xa0 = g_road_finish_node * 0x60000;
+		}
+	}
 }
 
 void tnfs_car_local_position_vector(tnfs_car_data *car, int *angle, int *length) {
@@ -1517,6 +1537,8 @@ void tnfs_init_sim() {
 	}
 
 	tnfs_camera_init();
+
+	DAT_000F9BB0 = 0;
 }
 
 /*
@@ -1595,9 +1617,6 @@ void tnfs_update() {
 		}
 
 		tnfs_car_update_center_line(car);
-
-		// set ground point for the collision engine
-		car->road_ground_position = track_data[car->track_slice].pos;
 	}
 
 	tnfs_camera_auto_change(player_car_ptr);

@@ -300,6 +300,9 @@ int read_tri_file(char * file) {
 		track_data[i].slant = readSigned16(buffer, 22);
 		track_data[i].heading = readSigned16(buffer, 24);
 
+		// police parking spot
+		track_data[i].police_spot = readSigned16(buffer, 26);
+
 		// 16-bit side normal: signed -32768 to +32768
 		track_data[i].side_normal_x = readSigned16(buffer, 28);
 		track_data[i].side_normal_y = readSigned16(buffer, 30);
@@ -654,7 +657,6 @@ int read_tddyn_file(char *carname, tnfs_car_data *car) {
 	}
 
 	car->pdn_max_rpm = 9000;
-	car->pdn_number_of_gears = 6;
 
 	fclose(ptr);
 	printf("Loaded car specs file %s.\n", file);

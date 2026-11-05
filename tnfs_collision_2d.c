@@ -10,7 +10,7 @@
 int crash_pitch = 0;
 int DAT_80111a40 = 0;
 
-void tnfs_collision_rotate(tnfs_car_data *car_data, int angle, int lon_speed, int fence_side, int road_flag, int aux_angle) {
+void tnfs_collision_rotate(tnfs_car_data *car_data, int angle, int lon_speed, int fence_side, int fence_flag) {
 	int d_angle;
 	int crash_speed_a;
 	int crash_speed_b;
@@ -19,11 +19,12 @@ void tnfs_collision_rotate(tnfs_car_data *car_data, int angle, int lon_speed, in
 	int collisionAngle;
 	int rotAngle;
 	int rotSide;
+	int iVar2, iVar3, iVar4, iVar5;
 
 	if (fence_side <= 0)
-		d_angle = aux_angle + angle;
+		d_angle = angle + 0x50000;
 	else
-		d_angle = angle - aux_angle;
+		d_angle = angle - 0x50000;
 
 	rotAngle = d_angle - car_data->angle.y + (-(d_angle - car_data->angle.y < 0) & 0x1000000);
 	if (rotAngle <= 0x800000)
@@ -39,7 +40,7 @@ void tnfs_collision_rotate(tnfs_car_data *car_data, int angle, int lon_speed, in
 
 	if (lon_speed >= 0x100000 && car_data->speed > 0x200000) {
 		crash_speed_a = lon_speed - 0x60000;
-		if (rotAngle >= 0x800000)
+		if (rotAngle >= 0x1000000)
 			rotSide = 0x1000000 - fix3(0x1000000 - rotAngle);
 		else
 			rotSide = fix3(rotAngle);
@@ -60,7 +61,7 @@ void tnfs_collision_rotate(tnfs_car_data *car_data, int angle, int lon_speed, in
 			crash_roll = crash_speed_a - crash_speed_b;
 		}
 
-		if (road_flag) {
+		if (fence_flag) {
 			crash_pitch = -crash_speed_b;
 		} else {
 			crash_roll = -crash_roll;
@@ -70,20 +71,83 @@ void tnfs_collision_rotate(tnfs_car_data *car_data, int angle, int lon_speed, in
 			tnfs_collision_rollover_start(car_data, fix2(crash_yaw), fix2(3 * crash_roll), fix2(3 * crash_pitch));
 		}
 	} else {
-		if (abs(collisionAngle) < 0x130000 && car_data->speed_local_lon > 0) {
-			if (fence_side <= 0) {
-				if (rotAngle < 0x130000) {
-					car_data->angle.y += rotAngle;
-					car_data->angular_speed = 0x9FFFC + 4;
+		  if (fence_flag == 0) {
+
+			iVar3 = rotAngle;
+			iVar5 = collisionAngle;
+
+			if (0x1000000 < iVar3) {
+				iVar3 = iVar3 + -0x1000000;
+			}
+			if (iVar3 < 0x800000) {
+				if (iVar3 < 0) {
+					iVar3 = iVar3 + 7;
 				}
+				iVar3 = iVar3 >> 3;
 			} else {
-				if (rotAngle > 0xed0001) {
-					car_data->angle.y += rotAngle;
-					car_data->angular_speed -= 0x9FFFC + 4;
+				iVar4 = -iVar3 + 0x1000000;
+				if (iVar4 < 0) {
+					iVar4 = -iVar3 + 0x1000007;
+				}
+				iVar3 = 0x1000000 - (iVar4 >> 3);
+			}
+			if (0x800000 < iVar3) {
+				iVar3 = iVar3 + -0x1000000;
+			}
+			iVar4 = lon_speed * (iVar5 >> 0x10) * 8;
+			if (iVar4 < 0) {
+				iVar4 = iVar4 + 0x3f;
+			}
+			iVar2 = lon_speed * 8 - (iVar4 >> 6);
+			iVar4 = iVar2 * 2;
+			if (0xa0000 < iVar4) {
+				iVar4 = 0xa0000;
+			}
+			if (iVar2 < 0x50000) {
+				iVar2 = 0x50000;
+			}
+
+			if (abs(collisionAngle) < 0x130000) {
+				if (fence_side <= 0) {
+					car_data->angular_speed -= iVar2;
+					if (car_data->speed_local_lon > 0) {
+						car_data->steer_angle -= iVar4;
+						if (car_data->steer_angle < -0x1e0000)
+							car_data->steer_angle = -0x1e0000;
+					}
+
+				} else {
+					car_data->angular_speed += iVar2;
+					if (car_data->speed_local_lon > 0) {
+						car_data->steer_angle += iVar4;
+						if (car_data->steer_angle > 0x1e0000)
+							car_data->steer_angle = 0x1e0000;
+					}
 				}
 			}
 		}
 	}
+
+	if (abs(collisionAngle) > 0x1fffff) {
+		return;
+	}
+	iVar3 = rotAngle;
+	if (0x1000000 < iVar3) {
+		iVar3 = iVar3 + -0x1000000;
+	}
+	if (iVar3 < 0x800000) {
+		if (iVar3 < 0) {
+			iVar3 = iVar3 + 7;
+		}
+		iVar3 = iVar3 >> 3;
+	} else {
+		iVar5 = -iVar3 + 0x1000000;
+		if (iVar5 < 0) {
+			iVar5 = -iVar3 + 0x1000007;
+		}
+		iVar3 = 0x1000000 - (iVar5 >> 3);
+	}
+	car_data->angle.y += iVar3;
 }
 
 
@@ -186,7 +250,7 @@ void tnfs_track_fence_collision(tnfs_car_data *car_data) {
 		aux = roadLeftFence * -0x2000 + tnfs_collision_car_size(car_data, fence_angle);
 		if (distance < aux) {
 			fenceSide = -0x100;
-			rebound_speed_x = aux - distance - 0x4ccc;
+			rebound_speed_x = aux + 0x4ccc - distance;
 			fence_flag = track_data[car_data->track_slice & g_slice_mask].fence_flag >> 4;
 		}
 
@@ -216,34 +280,38 @@ void tnfs_track_fence_collision(tnfs_car_data *car_data) {
 
 	// play collision sound
 	abs_speed = abs(rebound_speed_x);
-	if (fence_flag && (abs_speed > 0x60000)) {
-		if (sound_flag == 0) {
-			if (car_data->car_id2 == 0) {
-				if (selected_camera == 0) {
-					if (distance <= 0)
-						sfxA = 0x280000; //left channel
-					else
-						sfxA = 0xd70000; //right channel
-					sfxB = 1;
-				} else {
-					tnfs_car_local_position_vector(car_data, &sfxA, &sfxB);
-				}
-			}
+	if (abs_speed > 0x8000) {
+		if (selected_camera == 0) {
+			if (distance <= 0)
+				sfxA = 0x280000; //left channel
+			else
+				sfxA = 0xd70000; //right channel
+			sfxB = 1;
 		} else {
-			if (car_data->car_id2 == 0) {
-				sfxA = 0x400000;
-			} else {
-				sfxA = 0xc00000;
-			}
+			tnfs_car_local_position_vector(car_data, &sfxA, &sfxB);
 		}
+
+		aux = abs_speed;
+		if (abs_speed > 0x80000) {
+			aux = 0x80000;
+		}
+		aux = (0x80000 - aux) * 500;
+		if (aux < 0) {
+			aux = aux + 0x7ffff;
+		}
+		sfxB = sfxB + (aux >> 0x13);
+
 		tnfs_sfx_play(-1, 2, 9, abs_speed, sfxB, sfxA);
-		if (abs_speed > 0x140000) {
-			tnfs_replay_highlight_record(0x32);
-		}
 	}
 
-	// dampen collision rebound speed
-	if (abs_speed > 0x180000) {
+	// ...
+
+	if (abs_speed > 0x100000) {
+		tnfs_replay_highlight_record(0x32);
+	}
+
+	// dampen the speed across the fence (it keeps its direction)
+	if (abs_speed < 0x180000) {
 		if (rebound_speed_x > +0x20000)
 			rebound_speed_x = +0x20000;
 		if (rebound_speed_x < -0x20000)
@@ -293,21 +361,15 @@ void tnfs_track_fence_collision(tnfs_car_data *car_data) {
 	car_data->collision_a = 0x1e;
 	car_data->collision_b = 0x1e;
 
-	// reflect car speeds 180deg
+	//3DO
+	if ((car_data->throttle > 0x46) && (car_data->is_gear_engaged != 0)) {
+		car_data->throttle = 0x46;
+	}
+
+	// back to the world frame, turned 0x20000 (2.8 degrees) off the fence
 	math_rotate_2d(rebound_speed_x, rebound_speed_z, fence_angle, &car_data->speed_x, &car_data->speed_z);
 
-	// ???
-	if (fence_flag == 0) {
-		aux = 0x30000;
-		fence_flag = 0;
-	} else {
-		aux = 0x18000;
-	}
-	tnfs_collision_rotate(car_data, fence_angle, abs_speed, fenceSide, fence_flag, aux);
-
-	if (car_data->speed_y > 0) {
-		car_data->speed_y = 0;
-	}
+	tnfs_collision_rotate(car_data, fence_angle, abs_speed, fenceSide, fence_flag);
 }
 
 /* 2b064 */

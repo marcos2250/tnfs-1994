@@ -16,6 +16,9 @@ int g_const_8CCC = 0x8ccc; //DAT_800eae70
 int g_const_7333 = 0x7333; //DAT_800eae74
 int g_const_CCCC = 0xCCCC; //DAT_800eae78
 
+int DAT_00042174 = -1;
+int DAT_00042178 = -1;
+
 void tnfs_collision_rebound(tnfs_collision_data *body, tnfs_vec3 *l_edge, tnfs_vec3 *speed, tnfs_vec3 *normal) {
 	tnfs_vec3 cross_prod;
 	tnfs_vec3 normal_accel;
@@ -82,7 +85,7 @@ void tnfs_collision_rebound(tnfs_collision_data *body, tnfs_vec3 *l_edge, tnfs_v
 	iY = fixmul(l_edge->x, aux) - fixmul(l_edge->z, iX);
 	iZ = fixmul(l_edge->y, iX) - fixmul(l_edge->x, iY);
 
-	aux = math_mul(dampen, body->linear_acc_factor);
+	aux = math_mul(dampen, body->angular_acc_factor);
 	accel_edge.x = math_mul(aux, iX);
 	accel_edge.y = math_mul(aux, iY);
 	accel_edge.z = math_mul(aux, iZ);
@@ -305,6 +308,10 @@ void tnfs_collision_data_get(tnfs_car_data *car, int crash_state) {
 	body->state_timer = 0;
 	car->slide_front = 0;
 	car->slide_rear = 0;
+	if (car == player_car_ptr) {
+		DAT_00042174 = -1;
+		DAT_00042178 = -1;
+	}
 }
 
 /*
@@ -346,7 +353,6 @@ void tnfs_collision_main(tnfs_car_data *car) {
 	int local_24 = 0;
 	int local_28 = 0;
 	int aux;
-	int i;
 	int local_ec;	
 	int local_100;
 	int local_108;
@@ -382,9 +388,9 @@ void tnfs_collision_main(tnfs_car_data *car) {
 	fenceNormal.x = car->road_fence_normal.x;
 	fenceNormal.y = car->road_fence_normal.y;
 	fenceNormal.z = -car->road_fence_normal.z;
-	roadPosition.x = car->road_ground_position.x;
-	roadPosition.y = car->road_ground_position.y;
-	roadPosition.z = -car->road_ground_position.z;
+	roadPosition.x = car->road_position.x;
+	roadPosition.y = car->road_position.y;
+	roadPosition.z = -car->road_position.z;
 	//roadHeading.x = car->road_heading.x;
 	//roadHeading.y = car->road_heading.y;
 	//roadHeading.z = -car->road_heading.z;
@@ -399,28 +405,28 @@ void tnfs_collision_main(tnfs_car_data *car) {
 
 	// check if left or right fence
 	if (fixmul(fenceDistance.x, fenceNormal.x) + fixmul(fenceDistance.y, fenceNormal.y) + fixmul(fenceDistance.z, fenceNormal.z) < 1) {
-		aux = DAT_000f99e4;
+		aux = 0xCCCC;
 		if ((track_data[car->track_slice & g_slice_mask].fence_flag >> 4 != 0) && (track_data[car->track_slice & g_slice_mask].item_mode != 5)) {
-			aux = DAT_000f99e8;
+			aux = 0x13333;
 		}
-		roadWidth = (track_data[car->track_slice & g_slice_mask].roadLeftFence * -0x2000 - aux) >> 16;
+		roadWidth = (track_data[car->track_slice & g_slice_mask].roadLeftFence * -0x2000 - aux) >> 8;
 
-		fencePosition.y = roadWidth * fenceNormal.y + roadPosition.y;
-		fencePosition.x = roadWidth * fenceNormal.x + roadPosition.x;
-		fencePosition.z = roadWidth * fenceNormal.z + roadPosition.z;
+		fencePosition.y = roadWidth * (fenceNormal.y >> 8) + roadPosition.y;
+		fencePosition.x = roadWidth * (fenceNormal.x >> 8) + roadPosition.x;
+		fencePosition.z = roadWidth * (fenceNormal.z >> 8) + roadPosition.z;
 	} else {
-		aux = DAT_000f99e4;
+		aux = 0xCCCC;
 		if (((track_data[car->track_slice & g_slice_mask].fence_flag  & 0xf) != 0) && (track_data[car->track_slice & g_slice_mask].item_mode != 5)) {
-			aux = DAT_000f99e8;
+			aux = 0x13333;
 		}
-		roadWidth = (track_data[car->track_slice & g_slice_mask].roadRightFence * -0x2000 - aux) >> 16;
+		roadWidth = (track_data[car->track_slice & g_slice_mask].roadRightFence * 0x2000 + aux) >> 8;
 
+		fencePosition.y = roadWidth * (fenceNormal.y >> 8) + roadPosition.y;
+		fencePosition.x = roadWidth * (fenceNormal.x >> 8) + roadPosition.x;
+		fencePosition.z = roadWidth * (fenceNormal.z >> 8) + roadPosition.z;
 		fenceNormal.x = -fenceNormal.x;
 		fenceNormal.z = -fenceNormal.z;
 		fenceNormal.y = -fenceNormal.y;
-		fencePosition.y = roadWidth * fenceNormal.y + roadPosition.y;
-		fencePosition.x = roadWidth * fenceNormal.x + roadPosition.x;
-		fencePosition.z = roadWidth * fenceNormal.z + roadPosition.z;
 	}
 
 	/* car colliding to track fence */
@@ -576,14 +582,12 @@ void tnfs_collision_main(tnfs_car_data *car) {
 //LAB_000038b0
 		g_cam_change_delay = 0x3c;
 		if (car->is_crashed != 0 && collision_data->state_timer == 0) {
-			// wait while a racer is coming fast
-			for (i = 0; i < g_racer_cars_in_scene; i++) {
-				if (i != car->car_id2 //
-						&& g_car_ptr_array[i]->car_road_speed > 0x90000 //
-						&& g_car_ptr_array[i]->track_slice <= car->track_slice //
-						&& math_div((car->track_slice - g_car_ptr_array[i]->track_slice) * 0x60000, g_car_ptr_array[i]->car_road_speed) < 0x10000) {
-					collision_data->state_timer = 1;
-				}
+			// wait while opponent is coming fast
+			if (g_car_ptr_array[1] != 0 //
+					&& g_car_ptr_array[1]->car_road_speed > 0x90000 //
+					&& g_car_ptr_array[1]->track_slice <= car->track_slice //
+					&& math_div((car->track_slice - g_car_ptr_array[1]->track_slice) * 0x60000, g_car_ptr_array[1]->car_road_speed) < 0x10000) {
+				collision_data->state_timer = 1;
 			}
 		}
 
@@ -741,8 +745,8 @@ void tnfs_collision_main(tnfs_car_data *car) {
 		}
 		if (car == g_car_ptr_array[g_player_id]) {
 			car->slide_rear = 0;
-			//DAT_000FDCEC = iVar4;
-			//DAT_000FDCF0 = 1;
+			DAT_00042174 = iVar4;
+			DAT_00042178 = 1;
 		} else {
 			car->slide_rear = (iVar4 << 8) | 1;
 		}
@@ -1641,7 +1645,6 @@ int tnfs_collision_carcar_box_detect(tnfs_collision_data *car1, tnfs_collision_d
 	int iVar4;
 	int piVar5;
 	int iVar6;
-	int aux;
 	int iVar7;
 	int iVar8;
 	int iVar9;
@@ -1703,7 +1706,6 @@ int tnfs_collision_carcar_box_detect(tnfs_collision_data *car1, tnfs_collision_d
 		mat_aux.bx = ((car2->matrix).ax >> 8) * iVar7 + ((car2->matrix).ay >> 8) * iVar10 + ((car2->matrix).az >> 8) * iVar12;
 		mat_aux.by = ((car2->matrix).bx >> 8) * iVar7 + ((car2->matrix).by >> 8) * iVar10 + ((car2->matrix).bz >> 8) * iVar12;
 		mat_aux.bz = ((car2->matrix).cx >> 8) * iVar7 + ((car2->matrix).cy >> 8) * iVar10 + ((car2->matrix).cz >> 8) * iVar12;
-		aux = col_position->x;
 
 		if (!tnfs_collision_carcar_huge_func(car1, car2, col_position, col_direction, &mat_car2, &mat_car1, &mat_aux)) {
 			return iVar4;
@@ -1723,7 +1725,7 @@ int tnfs_collision_carcar_box_detect(tnfs_collision_data *car1, tnfs_collision_d
 			if (piVar5 < piVar3) {
 				piVar5 = piVar3;
 			}
-			if (piVar5 > 0xF9A58) {
+			if (piVar5 > 0x140000) {
 				iVar7 = abs(car_dist.x);
 				iVar10 = abs(car_dist.y);
 				iVar12 = iVar7;
@@ -1740,7 +1742,7 @@ int tnfs_collision_carcar_box_detect(tnfs_collision_data *car1, tnfs_collision_d
 
 				if (iVar12 < 0x3333) { // PC
 				//if ((iVar12 < DAT_800eae48) && (DAT_800eae1c == 0)) { // PSX
-					uVar2 = math_vec3_length_XYZ(local_68.x, piVar5, aux);
+					uVar2 = math_vec3_length(&local_68);
 					iVar4 = math_inverse_value(uVar2);
 					bVar1 = 1;
 				} else {
@@ -1756,7 +1758,7 @@ int tnfs_collision_carcar_box_detect(tnfs_collision_data *car1, tnfs_collision_d
 					//if (((DAT_800eae50 < piVar5) && (DAT_800eae20 == 0)) || (((DAT_800eae30 != 0 && (DAT_800eae54 < piVar5)) && (iVar7 < DAT_800eae4c)))) { //PSX
 					if (piVar5 > 0xd999) { //PC
 						bVar1 = 1;
-						uVar2 = math_vec3_length_XYZ(local_68.x, piVar5, aux);
+						uVar2 = math_vec3_length(&local_68);
 						iVar4 = math_inverse_value(uVar2);
 					}
 				}
@@ -1902,8 +1904,6 @@ int tnfs_collision_carcar_start(tnfs_car_data *car1, tnfs_car_data *car2) {
 	int doWreckOpp = 0;
 	int doWreckCop = 0;
 
-	int max_crash_speed = 0xd0000;
-
 	if (!tnfs_collision_carcar_box_detect(&car1->collision_data, &car2->collision_data, &col_position, &col_direction)) {
 		return 0;
 	}
@@ -1913,14 +1913,11 @@ int tnfs_collision_carcar_start(tnfs_car_data *car1, tnfs_car_data *car2) {
 
 	// player car crash
 	doWreckPlayer = car1 == player_car_ptr || car2 == player_car_ptr;
-	if (doWreckPlayer) {
-		max_crash_speed = 0x100000;
-	}
 	doWreckOpp = car1 == &g_car_array[1] || car2 == &g_car_array[1];
 	doWreckCop = car1 == &g_car_array[2] || car2 == &g_car_array[2];
 
 	// hit and run
-	if (g_collision_force_carcar < max_crash_speed) {
+	if (g_collision_force_carcar < 0x100000) {
 		if (car1->crash_state != 4) {
 			tnfs_collision_data_get(car1, car1->crash_state);
 		}

@@ -317,24 +317,23 @@ typedef struct tnfs_car_data {
 	int side_width; //0x78
 	struct tnfs_car_data * car_data_ptr; //0x07C
 	tnfs_vec3 road_fence_normal; //0x080 actually a matrix (tnfs_vec9)
-	tnfs_vec3 road_surface_normal;
-	tnfs_vec3 road_heading;
-	tnfs_vec3 road_position;
+	tnfs_vec3 road_surface_normal; //0x8c
+	tnfs_vec3 road_heading; //0xa0
+	tnfs_vec3 road_position; //0xa4
+	int collision_height_offset; //0xb0
+	tnfs_collision_data collision_data; //0xb4
 	// ...
-	int collision_height_offset;
-	tnfs_collision_data collision_data;
-
 	int field_158; // random group index
-	int car_road_speed; //0x158
-	int speed_target; //0x15C
-	int target_center_line; //0x160
+	int car_road_speed; //0x14c
+	int speed_target; //0x150
+	int target_center_line; //0x154
 
 	/*
 	 * #Handling Factor 1 per skill level higher is less affected by curves
 	 * #Relative to the top speed line (512TR)
 	 */
-	int handling_factor[3]; //0x164 - PDN 0x14
-	int handling_factor_inv[3]; //FIX: inverse values
+	int handling_factor[3]; //0x158 - PDN 0x14
+	int handling_factor_inv[3]; //0x164 inverse values
 
 	/*
 	 * #Speed Factor 1 per skill level: higher is faster
@@ -362,111 +361,114 @@ typedef struct tnfs_car_data {
 	 * 0x100000
 	 * 0x200000 disabled?
 	 */
-	int ai_state; //0x174
+	int ai_state; //0x17c
 
-	int power_curve[100]; //0x178
+	int power_curve[100]; //0x180
 	// ...
 
 	/*
 	 * #top speeds per gear (mph) must be 6 figures, if less than 6 gears set first to 0
 	 */
-	int top_speed_per_gear[6]; //0x308
+	int top_speed_per_gear[6]; //0x31c
 
-	int ai_gear_ratios[6]; //0x320
+	int ai_gear_ratios[6]; //0x328
 
-	int pdn_max_rpm; //0x338
+	int pdn_max_rpm; //0x334
 	int lane_slack; //0x33c
 	// ...
 	int angle_dy; //0x354
 	// ...
-	tnfs_vec3 world_position; //0x35c
-	int body_roll; //0x365
-	int body_pitch; //0x369
-	tnfs_vec3 front_edge;
-	tnfs_vec3 side_edge;
-	tnfs_vec3 road_ground_position;
-	tnfs_vec3 carmodel_angle;
-	int track_center_distance; //0x39D
+	tnfs_vec3 world_position; //0x350
 	// ...
-	int throttle; //0x3B1
-	int throttle_previous_pos; //0x3B5
-	int brake; //0x3B9
-	int is_shifting_gears; //0x3BD
-	short rpm_engine; //0x3C1
-	short rpm_vehicle; //0x3C2
-	short rpm_redline; //0x3C2
-	int road_grip_increment; //0x3C9
-	int tire_grip_rear; //0x3CD
-	int tire_grip_front; //0x3D1
+	int body_roll; //0x3a0
+	int body_pitch; //0x3a4
+	tnfs_vec3 front_edge; //0x3a8
+	tnfs_vec3 side_edge; //0x3b4
+	tnfs_vec3 road_ground_position; //0x3c0
+	tnfs_vec3 carmodel_angle; //0x3cc
+	int track_center_distance; //0x3d8
 	// ...
-	int slope_force_lat; //0x3D9
-	int unknown_flag_3DD; //0x3DD
-	int slope_force_lon; //0x3E1
-	int thrust; //0x3E5
-	int gear_auto_selected; //0x3E9
-	int gear_selected; //0x3ED
-	int is_gear_engaged; //0x3F1
-	int handbrake; //0x3F5
-	int is_engine_cutoff; //0x3F9
-	char wheels_on_ground;
-	int time_off_ground; //0x401
-	int slide_front; //0x405
-	int slide_rear; //0x409
-	int tire_grip_loss; //0x40D
-	int accel_lat; //0x411
-	int accel_lon; //0x415
-	int gear_shift_current; //0x419
-	int gear_shift_previous; //0x41D
-	int gear_shift_interval; //0x421
-	char tire_skid_front; //0x425
-	char tire_skid_rear; //0x426
+	int throttle; //0x3EC
+	int throttle_previous_pos; //0x3F0
+	int brake; //0x3F4
+	int is_shifting_gears; //0x3F8
+	short rpm_engine; //0x3FC
+	short rpm_vehicle; //0x400
+	short rpm_redline; //??
+	int field_0x404; //0x404
+	int tire_grip_rear; //0x408
+	int tire_grip_front; //0x40C
+	// ...
+	int slope_force_lat; //0x414
+	int unknown_flag_3DD; //0x418
+	int slope_force_lon; //0x41c
+	int thrust; //0x420
+	int gear_auto_selected; //0x424
+	int gear_selected; //0x428
+	int is_gear_engaged; //0x42C
+	int handbrake; //0x430
+	int is_engine_cutoff; //0x434
+	char wheels_on_ground; //0x438
+	int time_off_ground; //0x43C
+	//
+	int slide_front; //0x444
+	int slide_rear; //0x448
+	int tire_grip_loss; //0x44C
+	int accel_lat; //0x450
+	int accel_lon; //0x454
+	int gear_shift_current; //0x458
+	int gear_shift_previous; //0x45C
+	int gear_shift_interval; //0x460
+	char tire_skid_front; //0x464
+	char tire_skid_rear; //0x465
 	// ...
 	char collision_a; //collision flags added in PSX version
 	char collision_b;
 	int collision_x;
 	int collision_y;
 	// ...
-	int weight_distribution_front; //0x435
-	int weight_distribution_rear; //0x439
-	int mass_front;
-	int mass_rear;
-	int weight_transfer_factor; //0x445
-	int rear_friction_factor; //0x449
-	int front_friction_factor; //0x44D
-	int wheel_base; //0x451
-	int moment_of_inertia;
-	int front_yaw_factor; //0x459
-	int rear_yaw_factor; //0x45D
+	int weight_distribution_front; //0x474
+	int weight_distribution_rear; //0x478
+	int mass_front; //0x47c
+	int mass_rear; //0x480
+	int weight_transfer_factor; //0x484
+	int rear_friction_factor; //0x488
+	int front_friction_factor; //0x48C
+	int wheel_base; //0x490
+	int moment_of_inertia; //0x494
+	int front_yaw_factor; //0x498
+	int rear_yaw_factor; //0x49C
 	// ...
-	int field_461; //0x461
-	int pdn_number_of_gears; //0x46c
-	struct tnfs_car_specs *car_specs_ptr; //0x471
-	int car_id2; //0x475
+	int field_461; //0x4a0 - PDN 0x1c8 value: the horn pitch/index for traffic
 	// ...
-	int car_model_id; //0x48d //0 TSupra, 1 LDiabl, 2 P911, 3 CZR1, 4 F512TR, 5 DVIPER, 6 ANSX, 7 MRX7 .. 11 Traffc
-	int tcs_enabled; //0x491
-	int abs_enabled; //0x495
-	// ...
-	int surface_type; //0x49D
-	int surface_type_b; //0x4A1
-	// ...
-	int field_4a9; //0x4A9
-	int tcs_on; //0x4AD
-	int abs_on; //0x4B1
-	int road_object_slice; //0x4B9 slice of the road object at road_object_index (PSX 0x4f8)
-	int road_object_index; //0x4BD cursor into g_road_objects (PSX 0x4fc)
-	// ...
-	int field_4c5; //0x4C5 checkpoint flick maneuvre
-	int field_4c9; //0x4C9 time since finish line cross
-	int field_4cd; //0x4CD crossed the finish line flag
-	int field_4d1; //0x4D1
-	int field_4d3; //0x4D3
-	int delta_time; //0x4D5
-	int fps; //0x4D9
-	// ...
+	struct tnfs_car_specs *car_specs_ptr; //0x4b0
 
-	int crash_state; //0x4e1 0x520 // 2-normal/player 3-normal/opponent 4-wrecked 6-inactive
-	int car_id; //0x4e5 0x524 //car id number 0..7
+	int crash_state; //0x4b8 // 2-normal/player 3-normal/opponent 4-wrecked 6-inactive
+	int car_id2; //0x4bc 0x524 //car id number 0..7
+	int car_id; //0x4c8
+
+	// ...
+	int car_model_id; //0 TSupra, 1 LDiabl, 2 P911, 3 CZR1, 4 F512TR, 5 DVIPER, 6 ANSX, 7 MRX7 .. 11 Traffc
+	int tcs_enabled;
+	int abs_enabled;
+	// ...
+	int surface_type;
+	int surface_type_b;
+	int is_braking_hard;
+	int field_4a9;
+	int tcs_on;
+	int abs_on;
+	int horn;
+	int road_object_slice; //slice of the road object at road_object_index (PSX 0x4f8)
+	int road_object_index; //cursor into g_road_objects (PSX 0x4fc)
+	// ...
+	int field_4c5; //checkpoint flick maneuvre
+	int field_4c9; //time since finish line cross
+	int field_4cd; //crossed the finish line flag
+	int field_4d1;
+	int delta_time;
+	int fps;
+	// ...
 
 	/*
 	 * octal collision state flag:
@@ -478,7 +480,7 @@ typedef struct tnfs_car_data {
 	 */
 	int field_4e9;
 
-	int surface_type_2;
+	int surface_type_ice;
 	int redline; //0x1d4 TdDyn
 	int horn_freq; //0x1d8 TdDyn
 } tnfs_car_data;
@@ -525,7 +527,11 @@ typedef struct tnfs_track_data {
 	short slope; // 20
 	short slant; // 22
 	short heading; // 24
-	// blank
+
+	// police parking spot (DOS 0x78f5d, PSX 0x80055014, Win95 SE 0x46b950 tnfs_ai_police_parked_respawn): 1 spot,
+	// 2 left side (else right), 4 not parked, 0x18 index into the chance table DAT_000fdbe8
+	short police_spot; // 26
+
 	short side_normal_x; // 28
 	short side_normal_y; // 30
 	short side_normal_z; // 32
@@ -770,6 +776,8 @@ extern struct tnfs_car_specs car_specs;
 extern struct tnfs_car_data g_car_array[8];
 extern tnfs_car_data *g_car_ptr_array[8];
 extern tnfs_car_data *player_car_ptr;
+extern int g_some_car_array1[8];
+extern int g_some_car_array2[8];
 extern tnfs_car_data *g_cop_car_ptr;
 extern tnfs_ai_skill_cfg g_ai_skill_cfg;
 extern tnfs_stats_data g_stats_data;
@@ -781,7 +789,7 @@ extern char * g_ai_tddyn[];
 
 extern int g_total_cars_in_scene;
 extern int g_racer_cars_in_scene;
-extern int g_number_of_cops; //DAT_8010d1d0
+extern int g_number_of_cops;
 extern int g_number_of_traffic_cars;
 
 extern int g_police_on_chase;
@@ -809,16 +817,12 @@ extern int g_collision_bump_ref;
 extern int g_collision_force_carcar;
 extern int g_collision_force_wall;
 extern int DAT_000F9BB0;
-extern int DAT_000f99e4;
-extern int DAT_000f99e8;
 extern int DAT_000f99ec; //800eae14
 extern int DAT_000FDB94;
 extern int g_lcg_random_mod;
 extern int g_lcg_random_nbr;
 extern int g_lcg_random_seed;
 extern int g_camera_node;
-extern int DAT_00143844;
-extern int g_is_closed_track;
 extern int g_slice_mask; // track node id mask
 extern int g_track_slice;
 extern int g_police_speeding_ticket;
@@ -828,9 +832,11 @@ extern int g_police_chase_time;
 extern int g_player_id;
 extern int g_cam_change_delay;
 extern const int g_gravity_const;
-extern int g_race_positions[8];
 extern int g_toast_bonus_time;
 extern int g_toast_crash_time;
+extern int DAT_000fdcfc; //horn ticks
+extern int DAT_000fdcf8; //horn pitch
+extern int DAT_000fdd00; //car id
 
 extern struct tnfs_carmodel3d g_carmodels[32];
 extern int g_carmodels_count;
@@ -878,7 +884,7 @@ void tnfs_change_gear_down();
 void tnfs_ai_get_speed_factor(tnfs_car_data *car);
 void tnfs_ai_get_lane_slack(tnfs_car_data *car);
 int tnfs_car_shadow_update(tnfs_car_data *car, int param_2);
-int tnfs_racer_crossed_finish_line(tnfs_car_data *car);
+void tnfs_racer_crossed_finish_line(tnfs_car_data *car);
 void tnfs_smoke_particles_emit(tnfs_smoke_puff* smoke, tnfs_car_data* car, int type);
 void tnfs_smoke_particles_reset(tnfs_smoke_puff* smoke);
 void tnfs_smoke_particles_update(tnfs_smoke_puff* smoke, int type);
