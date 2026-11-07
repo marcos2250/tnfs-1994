@@ -641,8 +641,8 @@ int read_tddyn_file(char *carname, tnfs_car_data *car) {
 		car->top_speed_per_gear[i] = math_mul((int)db[i] * 0x10000, 0x71c4);
 	}
 
-	car->redline = readTxtDecimal(ptr);
-	car->horn_freq = readTxtDecimal(ptr);
+	car->redline = readTxtInt(ptr);
+	car->hornFreq = readTxtInt(ptr);
 
 	car->handling_factor[0] = readTxtDecimal(ptr);
 	car->handling_factor[1] = readTxtDecimal(ptr);

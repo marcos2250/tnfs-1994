@@ -2362,7 +2362,7 @@ void tnfs_ai_lane_change() {
 									// horn of oncoming traffic, only while g_sfx_radar_level (DAT_000F9BB0) is 0 (DOS 0x7b491)
 									if ((((g_lcg_random_nbr & 0xFFFF00u) >> 8) & 0xFF) < 35 && car->car_road_speed && !DAT_000F9BB0) {
 										// DOS car +0x461 is the PDN 0x1c8 value (tnfs_ai_pdn_file 0x47425): the horn pitch index for traffic
-										tnfs_sfx_horn_other_start(car->car_id2, car->field_461);
+										tnfs_sfx_horn_other_start(car->car_id2, car->hornFreq);
 									}
 								}
 							}

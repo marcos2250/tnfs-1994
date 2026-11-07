@@ -541,7 +541,6 @@ void tnfs_reset_car(tnfs_car_data *car) {
 	car->collision_data.traffic_speed_factor = 0x10000;
 	car->lane_slack = 0;
 	car->crash_state = 3;
-	car->field_461 = 0;
 	car->field_4e9 = 7;
 	car->field_158 = 0;
 
@@ -694,6 +693,8 @@ void tnfs_init_car() {
 	} else {
 		car->surface_type_ice = 0;
 	}
+
+	car->hornFreq = 5;
 
 	tnfs_reset_car(car);
 }
@@ -918,11 +919,7 @@ void sfx_update() {
 	sfx_play_sound(10, 1, 0.25f, f, d);
 
 	// air drag/rolling tires sound
-	if (car->time_off_ground > 0 || car->is_crashed) {
-		f = 0;
-	} else {
-		f = ((float)car->speed_local_lon) / 0x600000;
-	}
+	f = ((float)car->speed_local_lon) / 0x600000;
 	sfx_play_sound(17, 1, f, f, 0);
 
 	// unpaved road sound
@@ -932,7 +929,7 @@ void sfx_update() {
 	sfx_play_sound(11, 1, 0.25f, f, 0);
 
 	// tire screeching
-	if (car->time_off_ground > 0 || car->is_crashed || car->speed == 0 || car->surface_type == 0) {
+	if (car->time_off_ground > 0 || car->is_crashed || car->speed == 0 || car->surface_type != 0) {
 		f = 0;
 	} else {
 		if (is_drifting //
@@ -967,7 +964,8 @@ void sfx_update() {
 		v = abs(camera.track_slice - car->track_slice);
 		v = (100 / v) / 100;
 
-		sfx_play_sound(16, 0, 0.25f, v, 0);
+		f = 1.25f / car->hornFreq;
+		sfx_play_sound(16, 0, f, v, 0);
 	}
 }
 

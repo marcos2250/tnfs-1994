@@ -439,7 +439,7 @@ typedef struct tnfs_car_data {
 	int front_yaw_factor; //0x498
 	int rear_yaw_factor; //0x49C
 	// ...
-	int field_461; //0x4a0 - PDN 0x1c8 value: the horn pitch/index for traffic
+	int hornFreq; //0x4a0 - PDN 0x1c8 value: the horn pitch/index for traffic
 	// ...
 	struct tnfs_car_specs *car_specs_ptr; //0x4b0
 
@@ -482,7 +482,6 @@ typedef struct tnfs_car_data {
 
 	int surface_type_ice;
 	int redline; //0x1d4 TdDyn
-	int horn_freq; //0x1d8 TdDyn
 } tnfs_car_data;
 
 typedef struct tnfs_track_data {
